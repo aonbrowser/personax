@@ -2,6 +2,49 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Problem Solving and User Approval Rules
+
+### User Approval at Critical Decision Points
+- When encountering a problem or after a failed attempt, ALWAYS ask for user approval before switching to an alternative solution
+- If there are multiple paths to achieve the main goal, present all options to the user and ask for their preference before choosing the easier path
+- Specifically require approval in these situations:
+  - When deciding to simplify or remove a feature
+  - When switching to a different library or approach
+  - When implementing workarounds for debugging
+  - When compromising on performance or security requirements
+
+### Behavior When Facing Problems
+- When the first attempt fails:
+  1. Explain the problem and its cause
+  2. Present at least 2-3 alternative solutions
+  3. List pros and cons for each
+  4. Ask "How would you like me to proceed?"
+  5. WAIT for user response
+
+### Prohibited Behaviors
+- ❌ DO NOT say "This doesn't work, let's do this instead" and switch directly to an alternative
+- ❌ DO NOT simplify user's requested feature by calling it "complex"
+- ❌ DO NOT automatically try a different approach after receiving an error
+- ❌ DO NOT deviate from the original request by saying "There's an easier way"
+
+### Approval Request Format
+When encountering a problem, request approval in this format:
+"""
+🔔 APPROVAL REQUIRED:
+Problem: [Description of the issue encountered]
+Options:
+1. [First solution] - Difficulty: X/5
+2. [Second solution] - Difficulty: Y/5  
+3. [Third solution] - Difficulty: Z/5
+
+Which approach would you prefer? (1/2/3 or another suggestion)
+"""
+
+### Persistence and Commitment
+- Remain committed to the original goal unless explicitly told otherwise
+- If the harder path aligns better with the original requirements, recommend it
+- Don't assume the user wants the quickest solution - they may prefer the most robust one
+
 ## ⚠️ CRITICAL: DATABASE WARNING ⚠️
 
 **NEVER CREATE A NEW DATABASE** - The database `personax_app` already exists with production data!
@@ -29,6 +72,7 @@ This is a **Relate Coach** global multi-language platform combining:
 - **Language Safety**: Automatic language detection with GPT-5-mini, 2x retry mechanism
 
 ## 🚀 FIRST COMMAND TO RUN (Session Start)
+
 
 **When returning to this project, ALWAYS run this health check first:**
 ```bash

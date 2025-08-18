@@ -516,9 +516,9 @@ export default function S0ProfileScreen({ navigation }: any) {
                     ]}>
                       {item.text_tr}
                     </Text>
-                    {item.id === 'S0_FUTURE_HORIZON' && (
+                    {item.notes && (
                       <Text style={styles.questionNote}>
-                        İlişkiniz için ne kadar ileriye dönük plan yapıyorsunuz?
+                        {item.notes}
                       </Text>
                     )}
                     {item.id === 'S0_SCHOOL_FIELD' && (

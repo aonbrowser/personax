@@ -21,6 +21,8 @@ const newPersonAnalysisImage = require('./assets/images/new-person-analysis.png'
 // Screens
 import S0ProfileScreen from './screens/S0ProfileScreen';
 import S0CheckScreen from './screens/S0CheckScreen';
+import S1FormScreen from './screens/S1FormScreen';
+import S1CheckScreen from './screens/S1CheckScreen';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -54,6 +56,10 @@ export default function App() {
         case 's1form':
         case 'S1Form':
           document.title = 'S1 Formu - Kişilik Değerlendirmesi';
+          break;
+        case 's1check':
+        case 'S1Check':
+          document.title = 'S1 Eksik Sorular - PersonaX';
           break;
         case 's2form':
           document.title = 'S2 Formu - Partner Değerlendirmesi';
@@ -668,427 +674,8 @@ export default function App() {
     );
   };
 
-  // S1 Form Screen (Self Analysis)
-  const S1FormScreen = () => {
-    const [items, setItems] = useState<any[]>([]);
-    const [answers, setAnswers] = useState<any>({});
-    const [isLoading, setIsLoading] = useState(false);
-    const [showOnlyUnanswered, setShowOnlyUnanswered] = useState(false);
-    const [highlightUnanswered, setHighlightUnanswered] = useState(false);
-    
-    // LocalStorage'dan cevapları yükle
-    const loadSavedAnswers = () => {
-      if (Platform.OS === 'web') {
-        // Önce taslak cevapları kontrol et
-        const saved = localStorage.getItem('s1_draft_answers');
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            return parsed.answers || {};
-          } catch (e) {
-            console.error('Error loading saved answers:', e);
-          }
-        }
-        
-        // Taslak yoksa, tamamlanmış analizi kontrol et
-        const analysis = localStorage.getItem('s1Analysis');
-        if (analysis) {
-          try {
-            const parsed = JSON.parse(analysis);
-            return parsed.answers || {};
-          } catch (e) {
-            console.error('Error loading analysis answers:', e);
-          }
-        }
-      }
-      return {};
-    };
-    
-    // Cevapları LocalStorage'a kaydet
-    const saveAnswersToLocal = (currentAnswers: any) => {
-      if (Platform.OS === 'web') {
-        const saveData = {
-          answers: currentAnswers,
-          lastUpdated: new Date().toISOString()
-        };
-        localStorage.setItem('s1_draft_answers', JSON.stringify(saveData));
-      }
-    };
-    
-    useEffect(() => {
-      setIsLoading(true);
-      
-      // Önce kaydedilmiş cevapları yükle
-      const savedAnswers = loadSavedAnswers();
-      const hasSavedDraft = Object.keys(savedAnswers).length > 0;
-      
-      fetch('http://localhost:8080/v1/items/by-form?form=S1_self')
-        .then(r => r.json())
-        .then(data => {
-          const loadedItems = data.items || [];
-          setItems(loadedItems);
-          
-          // Kaydedilmiş cevapları kullan
-          setAnswers(savedAnswers);
-          
-          // Eğer kaydedilmiş taslak varsa kullanıcıyı bilgilendir
-          if (hasSavedDraft) {
-            const answeredCount = Object.keys(savedAnswers).filter(key => savedAnswers[key] !== undefined && savedAnswers[key] !== null).length;
-            Alert.alert(
-              '📝 Devam Et',
-              `Önceki taslağınız yüklendi. ${answeredCount} yanıtlanmış soru bulundu. Kaldığınız yerden devam edebilirsiniz.`,
-              [
-                { 
-                  text: 'Baştan Başla', 
-                  style: 'destructive',
-                  onPress: () => {
-                    setAnswers({});
-                    if (Platform.OS === 'web') {
-                      localStorage.removeItem('s1_draft_answers');
-                    }
-                  }
-                },
-                { text: 'Devam Et', style: 'default' }
-              ]
-            );
-          }
-          
-          setIsLoading(false);
-        })
-        .catch(err => {
-          console.error('Error loading S1 form:', err);
-          setIsLoading(false);
-          Alert.alert('Hata', 'Form yüklenirken bir hata oluştu');
-        });
-    }, []);
-    
-    const setAnswer = (id: string, val: any) => {
-      const newAnswers = { ...answers, [id]: val };
-      setAnswers(newAnswers);
-      saveAnswersToLocal(newAnswers); // Otomatik kaydet
-    };
-    
-    const getProgress = () => {
-      // Sadece değer atanmış cevapları say
-      const answered = Object.keys(answers).filter(key => answers[key] !== undefined && answers[key] !== null).length;
-      const total = items.length;
-      return { answered, total, percentage: total > 0 ? Math.round((answered / total) * 100) : 0 };
-    };
-    
-    const getUnansweredQuestions = () => {
-      return items.filter(item => !answers[item.id] || answers[item.id] === null);
-    };
-    
-    
-    const handleSubmit = () => {
-      const progress = getProgress();
-      const unanswered = getUnansweredQuestions();
-      
-      if (progress.answered === 0) {
-        Alert.alert('Uyarı', 'Lütfen en az bir soruyu yanıtlayın');
-        return;
-      }
-      
-      if (unanswered.length > 0) {
-        // Eksik sorular var
-        if (!showOnlyUnanswered) {
-          // İlk uyarı - soruları vurgula
-          Alert.alert(
-            '⚠️ Eksik Sorular',
-            `${unanswered.length} soru cevaplanmadı.\n\nBu soruları görmek için "Eksik Soruları Göster" butonuna basın.`,
-            [
-              {
-                text: 'Eksik Soruları Göster',
-                onPress: () => {
-                  setHighlightUnanswered(true);
-                  setShowOnlyUnanswered(true);
-                }
-              },
-              {
-                text: 'Devam Et',
-                style: 'cancel'
-              }
-            ]
-          );
-        } else {
-          // Hala eksik var ve sadece eksikler gösteriliyor
-          Alert.alert(
-            '⚠️ Hala Eksik Sorular Var',
-            `${unanswered.length} soru hala cevaplanmadı.\n\nLütfen kırmızı ile işaretlenmiş soruları cevaplayın.`,
-            [
-              {
-                text: 'Tamam',
-                style: 'cancel'
-              }
-            ]
-          );
-        }
-      } else {
-        submitForm();
-      }
-    };
-    
-    const submitForm = async () => {
-      const progress = getProgress();
-      
-      // Save to localStorage for future reference
-      if (Platform.OS === 'web') {
-        const analysisData = {
-          answers,
-          completedAt: new Date().toISOString(),
-          questionCount: progress.answered,
-          totalQuestions: progress.total
-        };
-        localStorage.setItem('s1Analysis', JSON.stringify(analysisData));
-      }
-      
-      // TODO: API'ye gönder ve sonuçları al
-      // const results = await analyzeS1(answers);
-      
-      // Kalite kontrolü yap (örnek logic)
-      const needsS3 = checkIfNeedsS3(answers);
-      
-      if (needsS3) {
-        // S3'e yönlendir (koşullu)
-        Alert.alert(
-          '🎯 Tip Doğrulama Önerisi',
-          'Bazı yanıtlarınız belirsiz. Kısa bir doğrulama testi öneriyoruz.',
-          [
-            {
-              text: 'Atla',
-              onPress: () => showS4Option(),
-              style: 'cancel'
-            },
-            {
-              text: 'Devam Et',
-              onPress: () => setCurrentScreen('s3form')
-            }
-          ]
-        );
-      } else {
-        // S3 gerekmiyorsa S4 seçeneği sun
-        showS4Option();
-      }
-    };
-    
-    const checkIfNeedsS3 = (answers: any) => {
-      // Borderline skorları kontrol et (örnek logic)
-      // Gerçek uygulamada API'den gelen sonuçlara göre karar verilir
-      const answeredCount = Object.keys(answers).length;
-      return answeredCount < items.length * 0.95; // %95'ten az cevaplandıysa
-    };
-    
-    const showS4Option = () => {
-      Alert.alert(
-        '📊 Değerler & Sınırlar',
-        'İlişki dinamiklerinizi daha iyi anlamak için değerler ve sınırlar testini yapmak ister misiniz?',
-        [
-          {
-            text: 'Hayır, Bitir',
-            onPress: () => {
-              Alert.alert('✅ Tamamlandı', 'Analiziniz başarıyla kaydedildi.');
-              setCurrentScreen('home');
-            },
-            style: 'cancel'
-          },
-          {
-            text: 'Evet',
-            onPress: () => setCurrentScreen('s4form')
-          }
-        ]
-      );
-    };
-    
-    
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.screenContainer}>
-          <View style={styles.header}>
-            <TouchableOpacity 
-              onPress={() => setCurrentScreen('s0profile')} 
-              style={styles.backButtonContainer}
-            >
-              <Text style={styles.backArrow}>←</Text>
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Kendi Analizim (S1)</Text>
-            <View style={styles.headerSpacer} />
-          </View>
-
-          <ScrollView 
-            showsVerticalScrollIndicator={false} 
-            style={styles.content}
-            contentContainerStyle={styles.formContentContainer}
-          >
-            {/* Instructions */}
-            {items.length > 0 && (
-              <View style={styles.instructionsCard}>
-                <Text style={styles.instructionsTitle}>📖 Yönergeler</Text>
-                <View style={styles.instructionsContent}>
-                  <View style={styles.instructionRow}>
-                    <Text style={styles.instructionLabel}>-2</Text>
-                    <Text style={styles.instructionText}>Kesinlikle Katılmıyorum</Text>
-                  </View>
-                  <View style={styles.instructionRow}>
-                    <Text style={styles.instructionLabel}>-1</Text>
-                    <Text style={styles.instructionText}>Katılmıyorum</Text>
-                  </View>
-                  <View style={styles.instructionRow}>
-                    <Text style={styles.instructionLabel}>0</Text>
-                    <Text style={styles.instructionText}>Kararsızım</Text>
-                  </View>
-                  <View style={styles.instructionRow}>
-                    <Text style={styles.instructionLabel}>+1</Text>
-                    <Text style={styles.instructionText}>Katılıyorum</Text>
-                  </View>
-                  <View style={styles.instructionRow}>
-                    <Text style={styles.instructionLabel}>+2</Text>
-                    <Text style={styles.instructionText}>Kesinlikle Katılıyorum</Text>
-                  </View>
-                </View>
-                <Text style={styles.instructionNote}>
-                  İpucu: Bu testin amacı, kişisel özelliklerinizin analiz edilmesidir. Burada yüksek ya da düşük puan söz konusu değildir; önemli olan, sorulara mümkün olduğunca dürüst ve samimi yanıt vermenizdir.
-                </Text>
-              </View>
-            )}
-            
-            {/* Progress Bar */}
-            {items.length > 0 && (
-              <View style={styles.progressContainer}>
-                <View style={styles.progressHeader}>
-                  <Text style={styles.progressText}>
-                    İlerleme: {getProgress().answered} / {getProgress().total}
-                  </Text>
-                  <Text style={styles.progressPercentage}>
-                    %{getProgress().percentage}
-                  </Text>
-                </View>
-                <View style={styles.progressBarBackground}>
-                  <View 
-                    style={[
-                      styles.progressBarFill,
-                      { width: `${getProgress().percentage}%` }
-                    ]} 
-                  />
-                </View>
-              </View>
-            )}
-
-            {isLoading ? (
-              <View style={styles.loadingContainer}>
-                <Text style={styles.loadingText}>Form yükleniyor...</Text>
-              </View>
-            ) : items.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyIcon}>📋</Text>
-                <Text style={styles.emptyTitle}>Form bulunamadı</Text>
-              </View>
-            ) : (
-              <>
-                {/* Eksik Soruları Göster/Gizle Butonu */}
-                {showOnlyUnanswered && (
-                  <View style={styles.filterContainer}>
-                    <Text style={styles.filterText}>
-                      Sadece cevaplanmamış sorular gösteriliyor ({getUnansweredQuestions().length} soru)
-                    </Text>
-                    <TouchableOpacity
-                      style={styles.filterButton}
-                      onPress={() => {
-                        setShowOnlyUnanswered(false);
-                        setHighlightUnanswered(false);
-                      }}
-                    >
-                      <Text style={styles.filterButtonText}>Tüm Soruları Göster</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-                
-                <View style={styles.questionsContainer}>
-                  {(showOnlyUnanswered ? getUnansweredQuestions() : items).map((item: any, index: number) => {
-                    // Section değiştiğinde başlık göster
-                    const itemsToShow = showOnlyUnanswered ? getUnansweredQuestions() : items;
-                    const showSectionHeader = !showOnlyUnanswered && (index === 0 || 
-                      (itemsToShow[index - 1] && itemsToShow[index - 1].section !== item.section));
-                    
-                    const isUnanswered = !answers[item.id];
-                    
-                    return (
-                      <View key={item.id}>
-                        {showSectionHeader && (
-                          <View style={styles.sectionDivider}>
-                            <Text style={styles.sectionDividerText}>
-                              {item.section === 'BigFive' && 'Kişilik Özellikleri'}
-                              {item.section === 'MBTI' && 'Tip Göstergeleri'}
-                              {item.section === 'Attachment' && 'Bağlanma Stilleri'}
-                              {item.section === 'Conflict' && 'Çatışma Yönetimi'}
-                              {item.section === 'Validity' && 'Geçerlilik Kontrol'}
-                              {item.section === 'Quality' && 'Kalite Kontrol'}
-                            </Text>
-                          </View>
-                        )}
-                        
-                        {item.type === 'OpenText' ? (
-                          <OpenTextRow
-                            item={item}
-                            value={answers[item.id]}
-                            onChange={(v: any) => setAnswer(item.id, v)}
-                            isHighlighted={highlightUnanswered && isUnanswered}
-                          />
-                        ) : item.type === 'MultiChoice5' ? (
-                          <MultiRow
-                            item={item}
-                            value={answers[item.id]}
-                            onChange={(v: any) => setAnswer(item.id, v)}
-                          />
-                        ) : item.type === 'ForcedChoice2' ? (
-                          <ForcedRow 
-                            item={item} 
-                            value={answers[item.id]} 
-                            onChange={(v: any) => setAnswer(item.id, v)}
-                            isHighlighted={highlightUnanswered && isUnanswered}
-                          />
-                        ) : (
-                          <LikertRow 
-                            item={item} 
-                            value={answers[item.id]} 
-                            onChange={(v: any) => setAnswer(item.id, v)}
-                            isHighlighted={highlightUnanswered && isUnanswered}
-                          />
-                        )}
-                      </View>
-                    );
-                  })}
-                </View>
-                
-                <View style={styles.formFooter}>
-                  <View style={styles.summaryCard}>
-                    <Text style={styles.summaryTitle}>📊 Özet</Text>
-                    <Text style={styles.summaryText}>
-                      Toplam {getProgress().total} sorudan {getProgress().answered} tanesi yanıtlandı
-                    </Text>
-                    {getProgress().answered === getProgress().total && (
-                      <Text style={styles.completedText}>✅ Tüm sorular tamamlandı!</Text>
-                    )}
-                  </View>
-                  
-                  <TouchableOpacity 
-                    style={[
-                      styles.submitButton,
-                      getProgress().answered === 0 && styles.submitButtonDisabled
-                    ]} 
-                    onPress={handleSubmit}
-                  >
-                    <Text style={styles.submitButtonText}>
-                      {getProgress().answered === getProgress().total ? 'Analizi Tamamla' : 'Gönder'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
-          </ScrollView>
-        </View>
-      </SafeAreaView>
-    );
-  };
+  // S1 Form Screen - moved to separate file: screens/S1FormScreen.tsx
+  // S1 Check Screen - moved to separate file: screens/S1CheckScreen.tsx
 
   // S3 Form Screen (Type Check)
   const S3FormScreen = () => {
@@ -1458,7 +1045,17 @@ export default function App() {
     }
     
     if (currentScreen === 's1form' || currentScreen === 'S1Form') {
-      return <S1FormScreen />;
+      return <S1FormScreen navigation={{ 
+        navigate: setCurrentScreen,
+        goBack: () => setCurrentScreen('s0check')
+      }} />;
+    }
+    
+    if (currentScreen === 's1check' || currentScreen === 'S1Check') {
+      return <S1CheckScreen navigation={{ 
+        navigate: setCurrentScreen,
+        goBack: () => setCurrentScreen('S1Form')
+      }} />;
     }
     
     if (currentScreen === 's2form') {
