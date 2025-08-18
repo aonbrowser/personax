@@ -1,0 +1,15 @@
+{
+  "appTitle": "My Life Coach",
+  "sections": {
+    "analyses": "Karakter Analizleri",
+    "relationships": "İlişkilerim"
+  },
+  "actions": {
+    "newAnalysis": "Yeni Analiz Yap",
+    "viewAll": "Tümünü Göster",
+    "newRelationship": "Yeni İlişki Analizi",
+    "analyzeWith": "Bu kişiyle ilişkini analiz et",
+    "superPay": "Süper Ödeme (Test)",
+    "mySelf": "Kendi Analizim"
+  }
+}

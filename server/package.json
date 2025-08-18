@@ -1,0 +1,25 @@
+{
+  "name": "relate-coach-server",
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsup src/index.ts --format esm --dts --sourcemap --clean",
+    "migrate": "psql $DATABASE_URL -f src/db/migrations/001_init.sql",
+    "seed:items": "tsx src/db/seed/import-items.ts",
+    "setup:dev": "npm run migrate && npm run seed:items ../data/testbank.csv"
+  },
+  "dependencies": {
+    "csv-parse": "^5.5.4",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "openai": "^4.58.1",
+    "pg": "^8.11.5"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.2",
+    "tsx": "^4.16.0",
+    "typescript": "^5.6.2"
+  }
+}

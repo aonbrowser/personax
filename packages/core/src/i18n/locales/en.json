@@ -1,0 +1,15 @@
+{
+  "appTitle": "My Life Coach",
+  "sections": {
+    "analyses": "Character Analyses",
+    "relationships": "My Relationships"
+  },
+  "actions": {
+    "newAnalysis": "New Analysis",
+    "viewAll": "View All",
+    "newRelationship": "New Relationship",
+    "analyzeWith": "Analyze relationship with this person",
+    "superPay": "Super Payment (Test)",
+    "mySelf": "My Analysis"
+  }
+}

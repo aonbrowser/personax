@@ -1,0 +1,25 @@
+id,form,section,subscale,text_tr,type,options_tr,reverse_scored,scoring_key,weight,notes
+S3_EI1,S3,MBTI,EI,"A) Enerji toplamak için insanlarla birlikte olmayı seçerim.
+B) Yalnız kalmayı seçerim.",ForcedChoiceAB,A|B,0,"{""A"": ""E"", ""B"": ""I""}",1.0,
+S3_EI2,S3,MBTI,EI,"A) Bir sorunu konuşarak düşünürüm.
+B) Sessizce kendi içimde çözerim.",ForcedChoiceAB,A|B,0,"{""A"": ""E"", ""B"": ""I""}",1.0,
+S3_EI3,S3,MBTI,EI,"A) Kalabalık etkinlik beni canlandırır.
+B) Yorar.",ForcedChoiceAB,A|B,0,"{""A"": ""E"", ""B"": ""I""}",1.0,
+S3_SN1,S3,MBTI,SN,"A) Mevcut veriler > Olasılıklar.
+B) Olasılıklar > Mevcut veriler.",ForcedChoiceAB,A|B,0,"{""A"": ""S"", ""B"": ""N""}",1.0,
+S3_SN2,S3,MBTI,SN,"A) Detay → Anlam.
+B) Anlam → Detay.",ForcedChoiceAB,A|B,0,"{""A"": ""S"", ""B"": ""N""}",1.0,
+S3_SN3,S3,MBTI,SN,"A) Somut örnekler isterim.
+B) Soyut fikirler beni çeker.",ForcedChoiceAB,A|B,0,"{""A"": ""S"", ""B"": ""N""}",1.0,
+S3_TF1,S3,MBTI,TF,"A) Tutarlılık > Duygusal etki.
+B) Duygusal etki > Tutarlılık.",ForcedChoiceAB,A|B,0,"{""A"": ""T"", ""B"": ""F""}",1.0,
+S3_TF2,S3,MBTI,TF,"A) Sert ama adil karar iyidir.
+B) İlişkiyi koruyan karar iyidir.",ForcedChoiceAB,A|B,0,"{""A"": ""T"", ""B"": ""F""}",1.0,
+S3_TF3,S3,MBTI,TF,"A) Önce doğru nedir.
+B) Önce iyi hissettiren nedir.",ForcedChoiceAB,A|B,0,"{""A"": ""T"", ""B"": ""F""}",1.0,
+S3_JP1,S3,MBTI,JP,"A) Planı bozmayı sevmem.
+B) Planı değiştirmek sorun değil.",ForcedChoiceAB,A|B,0,"{""A"": ""J"", ""B"": ""P""}",1.0,
+S3_JP2,S3,MBTI,JP,"A) Bitirmeden yenisine geçmem.
+B) Aynı anda birkaç şey açığım.",ForcedChoiceAB,A|B,0,"{""A"": ""J"", ""B"": ""P""}",1.0,
+S3_JP3,S3,MBTI,JP,"A) Net karar isterim.
+B) Seçenekler açık kalsın.",ForcedChoiceAB,A|B,0,"{""A"": ""J"", ""B"": ""P""}",1.0,

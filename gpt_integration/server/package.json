@@ -1,0 +1,21 @@
+{
+  "name": "relate-coach-server",
+  "version": "0.4.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "migrate": "psql $DATABASE_URL -f src/db/migrations/001_init.sql",
+    "seed:items": "tsx src/db/seed/import-items.ts"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.11.5",
+    "dotenv": "^16.4.5",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.16.0",
+    "typescript": "^5.6.2",
+    "csv-parse": "^5.5.6"
+  }
+}

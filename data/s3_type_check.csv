@@ -1,0 +1,13 @@
+id,form,section,subscale,text_tr,type,options_tr,reverse_scored,scoring_key,weight,notes
+S3_EI_1,S3_self,MBTI,EI,Yoğun bir günün sonunda enerjimi yenilemek için: A) insanlarla vakit geçiririm B) yalnız kalırım,ForcedChoice2,A|B,0,"{""A"": ""E"", ""B"": ""I""}",1.0,
+S3_EI_2,S3_self,MBTI,EI,Yeni bir ortama girdiğimde: A) hızlıca kaynaşırım B) önce gözlemler sonra dahil olurum,ForcedChoice2,A|B,0,"{""A"": ""E"", ""B"": ""I""}",1.0,
+S3_EI_3,S3_self,MBTI,EI,Beyin fırtınasında: A) yüksek sesle düşünürüm B) önce zihnimde netleştiririm,ForcedChoice2,A|B,0,"{""A"": ""E"", ""B"": ""I""}",1.0,
+S3_SN_1,S3_self,MBTI,SN,Bir projeyi tartışırken önce: A) somut detay/kanıt B) büyük resim/olasılık,ForcedChoice2,A|B,0,"{""A"": ""S"", ""B"": ""N""}",1.0,
+S3_SN_2,S3_self,MBTI,SN,Bir konuyu anlamak için: A) mevcut gerçekler B) olası senaryolar,ForcedChoice2,A|B,0,"{""A"": ""S"", ""B"": ""N""}",1.0,
+S3_SN_3,S3_self,MBTI,SN,Yenilik karşısında: A) işe yararlık B) potansiyel fırsat,ForcedChoice2,A|B,0,"{""A"": ""S"", ""B"": ""N""}",1.0,
+S3_TF_1,S3_self,MBTI,TF,Zor bir kararda: A) tutarlılık/adalet B) duygusal etki,ForcedChoice2,A|B,0,"{""A"": ""T"", ""B"": ""F""}",1.0,
+S3_TF_2,S3_self,MBTI,TF,Geri bildirim verirken: A) net/doğrudan B) hissi gözeterek,ForcedChoice2,A|B,0,"{""A"": ""T"", ""B"": ""F""}",1.0,
+S3_TF_3,S3_self,MBTI,TF,Çatışmada: A) problemi mantıkla çözerim B) duygusal etkiyi önce ele alırım,ForcedChoice2,A|B,0,"{""A"": ""T"", ""B"": ""F""}",1.0,
+S3_JP_1,S3_self,MBTI,JP,Planlar: A) net takvim/kapalı uçlu B) seçenekler açık/akışkan,ForcedChoice2,A|B,0,"{""A"": ""J"", ""B"": ""P""}",1.0,
+S3_JP_2,S3_self,MBTI,JP,Son dakika değişimi: A) rahatsız eder B) esnek davranırım,ForcedChoice2,A|B,0,"{""A"": ""J"", ""B"": ""P""}",1.0,
+S3_JP_3,S3_self,MBTI,JP,Görev stili: A) bitişten önce tamamlarım B) son ana kadar seçenekler açık,ForcedChoice2,A|B,0,"{""A"": ""J"", ""B"": ""P""}",1.0,

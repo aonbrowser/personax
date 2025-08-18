@@ -1,0 +1,41 @@
+id,form,section,subscale,text_tr,type,options_tr,reverse_scored,scoring_key,weight,notes
+S2_E1,S2,BigFive,E,[AD] sosyal ortamlarda sohbeti başlatır.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,X kişisi için [AD] yerine isim basın.
+S2_E2,S2,BigFive,E,[AD] kalabalıkta geri planda kalmayı seçer.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,1,,1.0,X kişisi için [AD] yerine isim basın.
+S2_E3,S2,BigFive,E,[AD] yeni insanlarla tanışmaktan hoşlanır.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,X kişisi için [AD] yerine isim basın.
+S2_A1,S2,BigFive,A,[AD] anlaşmazlıklarda önce karşı tarafı anlamaya çalışır.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,X kişisi için [AD] yerine isim basın.
+S2_A2,S2,BigFive,A,[AD] keskin/direkt eleştiriler yapar.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,1,,1.0,X kişisi için [AD] yerine isim basın.
+S2_A3,S2,BigFive,A,[AD] ekip içinde işbirliğini teşvik eder.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,X kişisi için [AD] yerine isim basın.
+S2_C1,S2,BigFive,C,[AD] verdiği sözleri zamanında tutar.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,X kişisi için [AD] yerine isim basın.
+S2_C2,S2,BigFive,C,[AD] eşyaları/işlerini dağınık bırakır.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,1,,1.0,X kişisi için [AD] yerine isim basın.
+S2_C3,S2,BigFive,C,[AD] hedef belirleyip takip eder.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,X kişisi için [AD] yerine isim basın.
+S2_ES1,S2,BigFive,E,[AD] stresli olaylarda kolayca gerginleşir.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,1,,1.0,X kişisi için [AD] yerine isim basın.
+S2_ES2,S2,BigFive,E,[AD] baskı altında soğukkanlılığını korur.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,X kişisi için [AD] yerine isim basın.
+S2_O1,S2,BigFive,O,[AD] yeni fikir ve deneyimlere açıktır.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,X kişisi için [AD] yerine isim basın.
+S2_O2,S2,BigFive,O,[AD] alışılmış yöntemlerden sapmayı sevmez.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,1,,1.0,X kişisi için [AD] yerine isim basın.
+S2_O3,S2,BigFive,O,[AD] sanat/tasarım/fikir tartışmalarını sever.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,X kişisi için [AD] yerine isim basın.
+S2_EI1,S2,MBTI,EI,[AD] uzun günün sonunda insanlarla vakit geçirmekten enerji toplar.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,Gözlem temelli.
+S2_EI2,S2,MBTI,EI,[AD] yalnız vakit geçirince daha çabuk toparlar.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,1,,1.0,Gözlem temelli.
+S2_SN1,S2,MBTI,SN,[AD] somut detayları ve kanıtları konuşmayı tercih eder.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,Gözlem temelli.
+S2_SN2,S2,MBTI,SN,[AD] olasılıklar/gelecek senaryoları hakkında konuşmayı tercih eder.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,1,,1.0,Gözlem temelli.
+S2_TF1,S2,MBTI,TF,[AD] karar verirken duygusal etkileri önceler.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,1,,1.0,Gözlem temelli.
+S2_TF2,S2,MBTI,TF,[AD] karar verirken öncelikle mantık ve tutarlılığı gözetir.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,Gözlem temelli.
+S2_JP1,S2,MBTI,JP,[AD] planlı ve takvimli ilerlemekten hoşlanır.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,Gözlem temelli.
+S2_JP2,S2,MBTI,JP,[AD] seçenekleri açık tutmayı ve esnekliği sever.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,1,,1.0,Gözlem temelli.
+S2_ANX1,S2,Attachment,ANX,[AD] mesajlara geç dönüldüğünde huzursuz görünür.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,
+S2_ANX2,S2,Attachment,ANX,[AD] ilişkide güvence arar; sık sık teyit ister.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,
+S2_ANX3,S2,Attachment,ANX,[AD] ayrılık/mesafe konuşmalarında kaygılılaşır.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,
+S2_AVO1,S2,Attachment,AVO,[AD] kişisel duygularını paylaşmaktan kaçınır.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,
+S2_AVO2,S2,Attachment,AVO,[AD] yakınlıktan sonra bir süre geri çekilir.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,
+S2_AVO3,S2,Attachment,AVO,[AD] sorunları konuşmak yerine zamana bırakır.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,
+S2_COM1,S2,Conflict,COMPETE,"[AD] anlaşmazlıkta iddialı tavır alır, geri çekilmez.",Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,
+S2_COL1,S2,Conflict,COLLAB,[AD] iki taraf için de uygun çözüm arar.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,
+S2_COL2,S2,Conflict,COLLAB,[AD] ortak zemini bulmak için aktif soru sorar.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,
+S2_CRM1,S2,Conflict,COMPROM,[AD] hızlı çözüm için orta yol önerir.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,
+S2_AVD1,S2,Conflict,AVOID,[AD] gerilim çıktığında konuyu ertelemeyi seçer.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,
+S2_ACM1,S2,Conflict,ACCOM,[AD] karşı tarafı kırmamak için kendi isteğinden vazgeçer.,Likert5,Asla/Neredeyse Hiç|Nadiren|Bazen|Sık sık|Hemen her zaman,0,,1.0,
+S2_VIG1,S2,Vignette,Conflict,[AD] ile ortak proje: Son teslim yarına çekildi. [AD] aksiyon bekliyor. Tipik tepkisi hangisine daha yakın?,MultiChoice5,A: Sertçe karşı çıkarım (Rekabet)|B: Konuyu erteleyip sakinleşince konuşurum (Kaçınma)|C: Orta yolu teklif ederim (Uzlaşma)|D: Önce onun ihtiyacını öne alırım (Uyum)|E: İki tarafın da kazanacağı çözüm ararım (İşbirliği),0,"{""A"": ""COMPETE"", ""B"": ""AVOID"", ""C"": ""COMPROM"", ""D"": ""ACCOM"", ""E"": ""COLLAB""}",1.0,
+S2_VIG2,S2,Vignette,Conflict,[AD] ile partneri arasında harcama tartışması çıktı. [AD]'nin ilk yaklaşımı…,MultiChoice5,A: Sertçe karşı çıkarım (Rekabet)|B: Konuyu erteleyip sakinleşince konuşurum (Kaçınma)|C: Orta yolu teklif ederim (Uzlaşma)|D: Önce onun ihtiyacını öne alırım (Uyum)|E: İki tarafın da kazanacağı çözüm ararım (İşbirliği),0,"{""A"": ""COMPETE"", ""B"": ""AVOID"", ""C"": ""COMPROM"", ""D"": ""ACCOM"", ""E"": ""COLLAB""}",1.0,
+S2_VIG3,S2,Vignette,Conflict,Toplantıda [AD]'nin fikri eleştirildi. [AD] genelde…,MultiChoice5,A: Sertçe karşı çıkarım (Rekabet)|B: Konuyu erteleyip sakinleşince konuşurum (Kaçınma)|C: Orta yolu teklif ederim (Uzlaşma)|D: Önce onun ihtiyacını öne alırım (Uyum)|E: İki tarafın da kazanacağı çözüm ararım (İşbirliği),0,"{""A"": ""COMPETE"", ""B"": ""AVOID"", ""C"": ""COMPROM"", ""D"": ""ACCOM"", ""E"": ""COLLAB""}",1.0,
+S2_CONF1,S2,Quality,CONF,[AD] hakkında verdiğim cevaplardan genel olarak eminim.,Likert5,Kesinlikle Katılmıyorum|Katılmıyorum|Kararsızım|Katılıyorum|Kesinlikle Katılıyorum,0,,1.0,
+S2_CONF2,S2,Quality,FREQ,[AD] ile ne sıklıkla etkileşim kuruyorum?,Likert5,Çok nadir|Ayda birkaç|Haftada 1–2|Haftada 3+|Hemen her gün,0,,1.0,
+S2_CONF3,S2,Quality,LEN,Bu formu dürüstçe yanıtladım.,Likert5,Kesinlikle Katılmıyorum|Katılmıyorum|Kararsızım|Katılıyorum|Kesinlikle Katılıyorum,0,,1.0,

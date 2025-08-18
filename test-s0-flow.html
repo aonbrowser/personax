@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>S0 Flow Test</title>
+    <meta charset="utf-8">
+</head>
+<body>
+    <h1>S0 Flow Test</h1>
+    
+    <h2>LocalStorage Durumu:</h2>
+    <pre id="storage"></pre>
+    
+    <h2>Test Butonları:</h2>
+    <button onclick="clearS0()">S0 Verilerini Temizle</button>
+    <button onclick="setFakeS0()">Fake S0 Verisi Ekle</button>
+    <button onclick="checkFlow()">Akışı Kontrol Et</button>
+    
+    <h2>Sonuç:</h2>
+    <pre id="result"></pre>
+    
+    <script>
+        function showStorage() {
+            const storage = document.getElementById('storage');
+            let output = '';
+            
+            const s0Answers = localStorage.getItem('S0_profile_answers');
+            const profileCompleted = localStorage.getItem('profile_completed');
+            const s1Analysis = localStorage.getItem('s1Analysis');
+            const s1Draft = localStorage.getItem('s1_draft_answers');
+            
+            output += `S0_profile_answers: ${s0Answers ? 'VAR (' + s0Answers.substring(0, 50) + '...)' : 'YOK'}\n`;
+            output += `profile_completed: ${profileCompleted ? 'VAR' : 'YOK'}\n`;
+            output += `s1Analysis: ${s1Analysis ? 'VAR' : 'YOK'}\n`;
+            output += `s1_draft_answers: ${s1Draft ? 'VAR' : 'YOK'}\n`;
+            
+            storage.textContent = output;
+        }
+        
+        function clearS0() {
+            localStorage.removeItem('S0_profile_answers');
+            localStorage.removeItem('profile_completed');
+            showStorage();
+            document.getElementById('result').textContent = 'S0 verileri temizlendi. Şimdi "Kendi Analizim"e tıklarsanız S0 formu açılmalı.';
+        }
+        
+        function setFakeS0() {
+            localStorage.setItem('S0_profile_answers', JSON.stringify({test: 'data'}));
+            localStorage.setItem('profile_completed', 'true');
+            showStorage();
+            document.getElementById('result').textContent = 'Fake S0 verisi eklendi. Şimdi "Kendi Analizim"e tıklarsanız direkt S1 açılmalı.';
+        }
+        
+        function checkFlow() {
+            const result = document.getElementById('result');
+            const s0Answers = localStorage.getItem('S0_profile_answers');
+            
+            if (!s0Answers) {
+                result.textContent = 'S0 verisi YOK → S0 formu açılmalı';
+                result.style.color = 'green';
+            } else {
+                result.textContent = 'S0 verisi VAR → Direkt S1 formu açılmalı';
+                result.style.color = 'blue';
+            }
+        }
+        
+        // Sayfa yüklendiğinde
+        showStorage();
+        checkFlow();
+    </script>
+</body>
+</html>

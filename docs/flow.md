@@ -1,0 +1,5 @@
+- Expo tek kod: web + mobil
+- PostgreSQL şema: `server/src/db/migrations/001_init.sql`
+- Promptlar: `server/src/prompts/*`
+- Dil denetimi: gpt-5-mini, 2 retry; olmazsa `language_incidents` kaydı ve UI banner metni `pipeline` döndürür.
+- Süper Ödeme: Expo'da test butonu.

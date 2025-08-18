@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Page</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .info {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-btn {
+            padding: 10px 20px;
+            background: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-btn:hover {
+            background: #005BBB;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            background: #e8f4f8;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="info">
+        <h1>Personax.app Test Page</h1>
+        <p>This page tests various endpoints and services</p>
+    </div>
+
+    <div class="info">
+        <h2>Service Status</h2>
+        <button class="test-btn" onclick="testHealth()">Test API Health</button>
+        <button class="test-btn" onclick="testBundle()">Test Expo Bundle</button>
+        <button class="test-btn" onclick="testExpoStatus()">Test Expo Status</button>
+        <button class="test-btn" onclick="loadExpoApp()">Load Expo App</button>
+        <div id="result"></div>
+    </div>
+
+    <div class="info">
+        <h2>Direct Links</h2>
+        <p>
+            <a href="http://localhost:8080/health" target="_blank">Backend Health (8080)</a> |
+            <a href="http://localhost:8081" target="_blank">Expo Direct (8081)</a> |
+            <a href="http://personax.app" target="_blank">Personax.app</a> |
+            <a href="http://personax.app/health" target="_blank">API Health via Domain</a>
+        </p>
+    </div>
+
+    <script>
+        const result = document.getElementById('result');
+        
+        async function testHealth() {
+            result.textContent = 'Testing API health...';
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                result.textContent = 'API Health: ' + JSON.stringify(data, null, 2);
+            } catch (error) {
+                result.textContent = 'API Health Error: ' + error.message;
+            }
+        }
+
+        async function testBundle() {
+            result.textContent = 'Testing Expo bundle...';
+            try {
+                const response = await fetch('/App.tsx.bundle?platform=web');
+                const text = await response.text();
+                result.textContent = `Bundle loaded: ${text.length} bytes\nContains React: ${text.includes('React')}\nContains "Relate Coach": ${text.includes('Relate Coach')}`;
+            } catch (error) {
+                result.textContent = 'Bundle Error: ' + error.message;
+            }
+        }
+
+        async function testExpoStatus() {
+            result.textContent = 'Checking Expo app structure...';
+            try {
+                const response = await fetch('/');
+                const text = await response.text();
+                const hasRoot = text.includes('id="root"');
+                const hasScript = text.includes('App.tsx.bundle');
+                const hasNoscript = text.includes('You need to enable JavaScript');
+                
+                result.textContent = `Expo HTML Structure:\n- Root element: ${hasRoot}\n- Bundle script: ${hasScript}\n- Noscript warning: ${hasNoscript}`;
+            } catch (error) {
+                result.textContent = 'Expo Status Error: ' + error.message;
+            }
+        }
+
+        function loadExpoApp() {
+            result.textContent = 'Loading Expo app in iframe...';
+            const iframe = document.createElement('iframe');
+            iframe.src = 'http://localhost:8081';
+            iframe.style.width = '100%';
+            iframe.style.height = '600px';
+            iframe.style.border = '1px solid #ddd';
+            iframe.style.borderRadius = '8px';
+            result.innerHTML = '';
+            result.appendChild(iframe);
+        }
+    </script>
+</body>
+</html>

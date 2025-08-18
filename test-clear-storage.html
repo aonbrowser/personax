@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Storage Test</title>
+</head>
+<body>
+    <h1>LocalStorage Temizleme Testi</h1>
+    <button onclick="clearS0()">S0 Profile Answers'ı Temizle</button>
+    <button onclick="showStorage()">Tüm Storage'ı Göster</button>
+    <button onclick="clearAll()">Tüm Storage'ı Temizle</button>
+    <pre id="output"></pre>
+    
+    <script>
+        function clearS0() {
+            localStorage.removeItem('S0_profile_answers');
+            localStorage.removeItem('profile_completed');
+            document.getElementById('output').textContent = 'S0 profile verileri temizlendi';
+            showStorage();
+        }
+        
+        function clearAll() {
+            localStorage.clear();
+            document.getElementById('output').textContent = 'Tüm localStorage temizlendi';
+        }
+        
+        function showStorage() {
+            let output = 'LocalStorage içeriği:\n\n';
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                const value = localStorage.getItem(key);
+                output += `${key}: ${value ? value.substring(0, 100) + '...' : 'null'}\n\n`;
+            }
+            document.getElementById('output').textContent = output;
+        }
+        
+        // Sayfa yüklendiğinde storage'ı göster
+        showStorage();
+    </script>
+</body>
+</html>
