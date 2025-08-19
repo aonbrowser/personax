@@ -1311,7 +1311,7 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 3,
     backgroundColor: '#F8FAFC',
   },
   backArrow: {
@@ -1342,7 +1342,7 @@ const styles = StyleSheet.create({
   profileButton: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 3,
     backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1353,7 +1353,7 @@ const styles = StyleSheet.create({
   profileImage: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 3,
   },
 
   // Content
@@ -1374,7 +1374,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
     padding: 16,
-    borderRadius: 16,
+    borderRadius: 3,
     alignItems: 'center',
   },
   statNumber: {
@@ -1399,7 +1399,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
     padding: 20,
-    borderRadius: 20,
+    borderRadius: 3,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
@@ -1417,7 +1417,7 @@ const styles = StyleSheet.create({
   cardIcon: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 3,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1475,7 +1475,7 @@ const styles = StyleSheet.create({
     width: '31%',
     backgroundColor: '#FFFFFF',
     padding: 20,
-    borderRadius: 16,
+    borderRadius: 3,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -1487,7 +1487,7 @@ const styles = StyleSheet.create({
   menuIconImage: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 3,
     marginBottom: 8,
   },
   menuTitle: {
@@ -1514,7 +1514,7 @@ const styles = StyleSheet.create({
   emptyState: {
     backgroundColor: '#FFFFFF',
     padding: 32,
-    borderRadius: 20,
+    borderRadius: 3,
     alignItems: 'center',
     marginTop: 16,
     borderWidth: 1,
@@ -1576,7 +1576,7 @@ const styles = StyleSheet.create({
   formContainer: {
     backgroundColor: '#FFFFFF',
     padding: 24,
-    borderRadius: 24,
+    borderRadius: 3,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
@@ -1592,7 +1592,7 @@ const styles = StyleSheet.create({
   input: {
     height: 48,
     backgroundColor: '#F8FAFC',
-    borderRadius: 12,
+    borderRadius: 3,
     paddingHorizontal: 16,
     fontSize: 16,
     color: '#1E293B',
@@ -1602,7 +1602,7 @@ const styles = StyleSheet.create({
   loginButton: {
     height: 48,
     backgroundColor: '#000000',  // Siyah
-    borderRadius: 25,
+    borderRadius: 3,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 8,
@@ -1636,7 +1636,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 3,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     gap: 8,
@@ -1697,7 +1697,7 @@ const styles = StyleSheet.create({
   relationOption: {
     backgroundColor: '#FFFFFF',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 3,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -1716,7 +1716,7 @@ const styles = StyleSheet.create({
   selectedRelationCard: {
     backgroundColor: '#FFFFFF',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 3,
     marginBottom: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1739,7 +1739,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     backgroundColor: '#F1F5F9',
-    borderRadius: 8,
+    borderRadius: 3,
   },
   changeRelationButtonText: {
     fontSize: 14,
@@ -1753,7 +1753,7 @@ const styles = StyleSheet.create({
   questionContainer: {
     backgroundColor: '#FFFFFF',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 3,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -1800,7 +1800,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     borderWidth: 1.5,
     borderColor: '#E5E7EB',
-    borderRadius: 25,
+    borderRadius: 3,
     backgroundColor: '#FFFFFF',
     marginBottom: 10,
   },
@@ -1819,7 +1819,7 @@ const styles = StyleSheet.create({
   submitButton: {
     backgroundColor: '#000000',  // Siyah
     padding: 16,
-    borderRadius: 25,
+    borderRadius: 3,
     alignItems: 'center',
     marginTop: 24,
   },
@@ -1840,7 +1840,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderWidth: 1.5,
     borderColor: '#E5E7EB',
-    borderRadius: 25,
+    borderRadius: 3,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
   },
@@ -1863,7 +1863,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     backgroundColor: '#FFFFFF',
     padding: 4,
-    borderRadius: 12,
+    borderRadius: 3,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
@@ -1871,7 +1871,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 3,
     alignItems: 'center',
   },
   domainTabActive: {
@@ -1890,7 +1890,7 @@ const styles = StyleSheet.create({
   infoCard: {
     backgroundColor: '#F0F9FF',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 3,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: '#BFDBFE',
@@ -1905,7 +1905,7 @@ const styles = StyleSheet.create({
   instructionsCard: {
     backgroundColor: '#FAFAFA',  // Açık gri arka plan
     padding: 20,
-    borderRadius: 12,
+    borderRadius: 3,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: '#E5E7EB',  // Gri kenarlık
@@ -1927,7 +1927,7 @@ const styles = StyleSheet.create({
   instructionLabel: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: 3,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -1955,7 +1955,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     backgroundColor: '#FFFFFF',  // Beyaz arka plan
     padding: 14,
-    borderRadius: 8,
+    borderRadius: 3,
   },
   
   // Progress Styles
@@ -1979,20 +1979,20 @@ const styles = StyleSheet.create({
   progressBarBackground: {
     height: 10,  // Daha kalın
     backgroundColor: '#E5E7EB',
-    borderRadius: 5,
+    borderRadius: 3,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
     backgroundColor: '#000000',  // Siyah
-    borderRadius: 5,
+    borderRadius: 3,
   },
   
   // Open Text Input Styles
   openTextInput: {
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    borderRadius: 8,
+    borderRadius: 3,
     padding: 12,
     fontSize: 14,
     minHeight: 100,
@@ -2012,7 +2012,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 3,
     marginBottom: 16,
     borderWidth: 2,
     borderColor: '#6366F1',
@@ -2030,7 +2030,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginVertical: 8,
     backgroundColor: '#000000',  // Siyah arka plan
-    borderRadius: 8,
+    borderRadius: 3,
   },
   sectionDividerText: {
     fontSize: 16,
@@ -2050,7 +2050,7 @@ const styles = StyleSheet.create({
   summaryCard: {
     backgroundColor: '#F0F9FF',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 3,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: '#BFDBFE',
@@ -2122,7 +2122,7 @@ const styles = StyleSheet.create({
   nameInput: {
     height: 56,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 3,
     paddingHorizontal: 16,
     fontSize: 18,
     color: '#1E293B',
@@ -2139,7 +2139,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     backgroundColor: '#F1F5F9',
-    borderRadius: 12,
+    borderRadius: 3,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -2152,7 +2152,7 @@ const styles = StyleSheet.create({
     flex: 2,
     height: 48,
     backgroundColor: '#6366F1',
-    borderRadius: 12,
+    borderRadius: 3,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -2166,7 +2166,7 @@ const styles = StyleSheet.create({
   personInfoCard: {
     backgroundColor: '#FFFFFF',
     padding: 16,
-    borderRadius: 16,
+    borderRadius: 3,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -2196,7 +2196,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     backgroundColor: '#F1F5F9',
-    borderRadius: 8,
+    borderRadius: 3,
   },
   changeButtonText: {
     fontSize: 14,
@@ -2210,7 +2210,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginHorizontal: 24,
     marginBottom: 16,
-    borderRadius: 12,
+    borderRadius: 3,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -2225,7 +2225,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+    borderRadius: 3,
     marginLeft: 12,
   },
   filterButtonText: {
@@ -2241,7 +2241,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     backgroundColor: '#F8FAFC',
-    borderRadius: 12,
+    borderRadius: 3,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -2269,7 +2269,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginHorizontal: 24,
     marginBottom: 16,
-    borderRadius: 12,
+    borderRadius: 3,
     borderWidth: 1,
     borderColor: '#DBEAFE',
   },
@@ -2291,7 +2291,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 3,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     marginBottom: 12,
@@ -2307,7 +2307,7 @@ const styles = StyleSheet.create({
   actionButtonIconImage: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 3,
     marginRight: 16,
   },
   actionButtonContent: {

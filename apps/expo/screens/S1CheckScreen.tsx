@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 3,
     backgroundColor: '#FED7D7',
   },
   backArrow: {
@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
   // Warning Card
   warningCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 3,
     padding: 16,
     marginBottom: 24,
     borderWidth: 2,
@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
   // Questions
   questionContainer: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 3,
     padding: 20,
     marginBottom: 16,
     borderWidth: 2,
@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
   textInput: {
     borderWidth: 1,
     borderColor: '#FC8181',
-    borderRadius: 8,
+    borderRadius: 3,
     padding: 12,
     fontSize: 14,
     minHeight: 100,
@@ -514,7 +514,7 @@ const styles = StyleSheet.create({
   choiceButton: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 3,
     backgroundColor: '#FFF5F5',
     borderWidth: 1,
     borderColor: '#FC8181',
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderWidth: 1,
     borderColor: '#FC8181',
-    borderRadius: 8,
+    borderRadius: 3,
     alignItems: 'center',
     backgroundColor: '#FFF5F5',
   },
@@ -575,7 +575,7 @@ const styles = StyleSheet.create({
   // Continue Button
   continueButton: {
     backgroundColor: '#E53E3E',
-    borderRadius: 12,
+    borderRadius: 3,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 24,

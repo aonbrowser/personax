@@ -289,6 +289,85 @@ Task("rc-ai-integration-expert: Optimize personality prompts")
 └── logs/               # Application logs directory
 ```
 
+## 🎨 UI/UX Stil Kuralları
+
+### Genel Stil Kuralları
+- **Border Radius:** TÜM elementlerde `borderRadius: 3` kullanılmalı
+- **Ana Renkler:**
+  - Primary Blue: `rgb(66, 153, 225)` - Seçili butonlar ve vurgular
+  - Section Header Dark: `rgb(45, 55, 72)` - Section başlıkları arka planı
+  - Background Gray: `rgb(244, 244, 244)` - Input arka planları
+  - Text Black: `rgb(0, 0, 0)` - Ana metin rengi
+  - White: `#FFFFFF` - Seçili buton metinleri ve section başlık yazıları
+
+### Component Stilleri
+```javascript
+// Section Başlıkları
+sectionDivider: {
+  backgroundColor: 'rgb(45, 55, 72)',
+  paddingVertical: 8,
+  paddingHorizontal: 16,
+  marginBottom: 16,
+  marginTop: 8,
+  borderRadius: 3,
+}
+
+sectionDividerText: {
+  color: '#FFFFFF',
+  fontSize: 14,
+  fontWeight: '600',
+}
+
+// Seçim Butonları
+choiceButton: {
+  paddingHorizontal: 16,
+  paddingVertical: 10,
+  borderWidth: 1,
+  borderColor: '#E5E7EB',
+  borderRadius: 3,
+  backgroundColor: '#FFFFFF',
+  flexShrink: 1,  // Mobilde taşmayı önler
+  minWidth: 0,     // Mobilde taşmayı önler
+}
+
+choiceButtonSelected: {
+  backgroundColor: 'rgb(66, 153, 225)',
+  borderColor: 'rgb(66, 153, 225)',
+}
+
+// Input Alanları
+textInput: {
+  borderWidth: 1,
+  borderColor: '#E5E7EB',
+  borderRadius: 3,
+  padding: 12,
+  fontSize: 14,
+  backgroundColor: 'rgb(244, 244, 244)',
+  color: 'rgb(0, 0, 0)',
+}
+
+// Likert Ölçeği
+likertOption: {
+  flex: 1,
+  paddingVertical: 10,
+  borderWidth: 1,
+  borderColor: '#E5E7EB',
+  borderRadius: 3,
+  alignItems: 'center',
+  backgroundColor: '#FFFFFF',
+}
+
+likertOptionSelected: {
+  backgroundColor: 'rgb(66, 153, 225)',
+  borderColor: 'rgb(66, 153, 225)',
+}
+```
+
+### Mobil Uyumluluk
+- Uzun metinler için `flexWrap: 'wrap'` ve `flexShrink: 1` kullan
+- Minimum genişliği `minWidth: 0` olarak ayarla
+- Text elementlerinde `textAlign: 'center'` kullan
+
 ### Current System State
 - **Database**: `personax_app` with 832 items total
 - **Backend**: Running on port 8080 (managed by PM2)

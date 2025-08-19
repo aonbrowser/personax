@@ -476,7 +476,7 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 3,
     backgroundColor: '#F7FAFC',
   },
   backArrow: {
@@ -536,20 +536,20 @@ const styles = StyleSheet.create({
   progressBarBackground: {
     height: 10,
     backgroundColor: '#E2E8F0',
-    borderRadius: 5,
+    borderRadius: 3,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
     backgroundColor: '#4299E1',
-    borderRadius: 5,
+    borderRadius: 3,
   },
   
   // Instructions
   instructionsCard: {
     backgroundColor: '#EDF2F7',
     padding: 20,
-    borderRadius: 12,
+    borderRadius: 3,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: '#CBD5E0',
@@ -579,7 +579,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     padding: 16,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 3,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
@@ -603,7 +603,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 16,
     marginTop: 8,
-    borderRadius: 8,
+    borderRadius: 3,
   },
   sectionDividerText: {
     color: '#FFFFFF',
@@ -615,7 +615,7 @@ const styles = StyleSheet.create({
   textInput: {
     borderWidth: 1,
     borderColor: '#CBD5E0',
-    borderRadius: 8,
+    borderRadius: 3,
     padding: 12,
     fontSize: 14,
     minHeight: 100,
@@ -635,8 +635,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderWidth: 1,
     borderColor: '#CBD5E0',
-    borderRadius: 8,
+    borderRadius: 3,
     backgroundColor: '#FFFFFF',
+    flexShrink: 1,
+    minWidth: 0,
   },
   choiceButtonSelected: {
     backgroundColor: '#4299E1',
@@ -645,6 +647,8 @@ const styles = StyleSheet.create({
   choiceText: {
     fontSize: 14,
     color: '#2D3748',
+    flexWrap: 'wrap',
+    textAlign: 'center',
   },
   choiceTextSelected: {
     color: '#FFFFFF',
@@ -671,7 +675,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderWidth: 1,
     borderColor: '#CBD5E0',
-    borderRadius: 8,
+    borderRadius: 3,
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
   },
@@ -696,7 +700,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 2,
     borderColor: '#CBD5E0',
-    borderRadius: 12,
+    borderRadius: 3,
     backgroundColor: '#FFFFFF',
   },
   mbtiOptionSelected: {
@@ -711,7 +715,7 @@ const styles = StyleSheet.create({
   mbtiLetter: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 3,
     backgroundColor: '#F7FAFC',
     borderWidth: 2,
     borderColor: '#CBD5E0',
@@ -749,7 +753,7 @@ const styles = StyleSheet.create({
   summaryCard: {
     backgroundColor: '#EBF8FF',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 3,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: '#90CDF4',
@@ -775,7 +779,7 @@ const styles = StyleSheet.create({
   submitButton: {
     backgroundColor: '#4299E1',
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 3,
     alignItems: 'center',
   },
   submitButtonDisabled: {

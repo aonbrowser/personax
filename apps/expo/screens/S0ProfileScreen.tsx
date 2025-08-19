@@ -516,16 +516,6 @@ export default function S0ProfileScreen({ navigation }: any) {
                     ]}>
                       {item.text_tr}
                     </Text>
-                    {item.notes && (
-                      <Text style={styles.questionNote}>
-                        {item.notes}
-                      </Text>
-                    )}
-                    {item.id === 'S0_SCHOOL_FIELD' && (
-                      <Text style={styles.questionNote}>
-                        Uzmanlık alanınız, mesleğiniz veya öğrenim gördüğünüz bölüm (birden fazla ise virgülle ayırın)
-                      </Text>
-                    )}
                     {renderInput(item, highlightUnanswered && isUnanswered)}
                   </View>
                 </View>
@@ -592,7 +582,7 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 3,
     backgroundColor: '#F8FAFC',
   },
   backArrow: {
@@ -652,20 +642,20 @@ const styles = StyleSheet.create({
   progressBarBackground: {
     height: 10,
     backgroundColor: '#E5E7EB',
-    borderRadius: 5,
+    borderRadius: 3,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
     backgroundColor: '#000000',
-    borderRadius: 5,
+    borderRadius: 3,
   },
   
   // Instructions
   instructionsCard: {
     backgroundColor: '#FAFAFA',
     padding: 20,
-    borderRadius: 12,
+    borderRadius: 3,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -692,7 +682,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF3C7',
     padding: 12,
     marginBottom: 16,
-    borderRadius: 12,
+    borderRadius: 3,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -707,7 +697,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+    borderRadius: 3,
     marginLeft: 12,
   },
   filterButtonText: {
@@ -724,7 +714,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     padding: 16,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 3,
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
@@ -752,12 +742,12 @@ const styles = StyleSheet.create({
   
   // Section Divider
   sectionDivider: {
-    backgroundColor: '#000000',
+    backgroundColor: 'rgb(45, 55, 72)',
     paddingVertical: 8,
     paddingHorizontal: 16,
     marginBottom: 16,
     marginTop: 8,
-    borderRadius: 8,
+    borderRadius: 3,
   },
   sectionDividerText: {
     color: '#FFFFFF',
@@ -769,7 +759,7 @@ const styles = StyleSheet.create({
   textInput: {
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    borderRadius: 8,
+    borderRadius: 3,
     padding: 12,
     fontSize: 14,
     minHeight: 80,
@@ -780,7 +770,7 @@ const styles = StyleSheet.create({
   singleLineInput: {
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    borderRadius: 8,
+    borderRadius: 3,
     padding: 12,
     fontSize: 14,
     height: 44,
@@ -790,7 +780,7 @@ const styles = StyleSheet.create({
   numberInput: {
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    borderRadius: 8,
+    borderRadius: 3,
     padding: 12,
     fontSize: 14,
     width: 150,
@@ -813,12 +803,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    borderRadius: 8,
+    borderRadius: 3,
     backgroundColor: '#FFFFFF',
   },
   choiceButtonSelected: {
-    backgroundColor: '#000000',
-    borderColor: '#000000',
+    backgroundColor: 'rgb(66, 153, 225)',
+    borderColor: 'rgb(66, 153, 225)',
   },
   choiceHighlighted: {
     borderColor: '#EF4444',
@@ -865,13 +855,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    borderRadius: 8,
+    borderRadius: 3,
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
   },
   likertOptionSelected: {
-    backgroundColor: '#000000',
-    borderColor: '#000000',
+    backgroundColor: 'rgb(66, 153, 225)',
+    borderColor: 'rgb(66, 153, 225)',
   },
   likertOptionHighlighted: {
     borderColor: '#EF4444',
@@ -892,7 +882,7 @@ const styles = StyleSheet.create({
   summaryCard: {
     backgroundColor: '#F0F9FF',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 3,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: '#BFDBFE',
@@ -918,7 +908,7 @@ const styles = StyleSheet.create({
   submitButton: {
     backgroundColor: '#000000',
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 3,
     alignItems: 'center',
   },
   submitButtonDisabled: {
