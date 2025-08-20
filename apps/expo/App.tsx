@@ -23,6 +23,9 @@ import S0ProfileScreen from './screens/S0ProfileScreen';
 import S0CheckScreen from './screens/S0CheckScreen';
 import S1FormScreen from './screens/S1FormScreen';
 import S1CheckScreen from './screens/S1CheckScreen';
+import PaymentCheckScreen from './screens/PaymentCheckScreen';
+import MyAnalysesScreen from './screens/MyAnalysesScreen';
+import AnalysisResultScreen from './screens/AnalysisResultScreen';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -30,10 +33,49 @@ export default function App() {
   const [email, setEmail] = useState('test@test.com');
   const [password, setPassword] = useState('test123');
   const [isLoading, setIsLoading] = useState(true);
+  const [secretClicks, setSecretClicks] = useState(0);
+  const [paymentParams, setPaymentParams] = useState<any>(null);
+  const [analysisResultParams, setAnalysisResultParams] = useState<any>(null);
 
-  // Check for existing session on mount
+  // Check for existing session on mount and handle URL routing
   useEffect(() => {
     checkAuthStatus();
+    
+    // Check URL for stargate route (using hash routing)
+    if (Platform.OS === 'web') {
+      const checkRoute = () => {
+        const hash = window.location.hash;
+        const path = window.location.pathname;
+        
+        console.log('Checking route:', { hash, path }); // Debug log
+        
+        // Check both hash and pathname
+        if (hash === '#stargate' || hash === '#/stargate' || path === '/stargate') {
+          console.log('Stargate route detected, switching to admin panel');
+          setCurrentScreen('admin-pricing');
+          // Update URL to use hash
+          if (path === '/stargate') {
+            window.history.replaceState({}, '', '/#stargate');
+          }
+        }
+      };
+      
+      // Check initial route
+      setTimeout(checkRoute, 100); // Small delay to ensure page is loaded
+      
+      // Listen for hashchange and popstate events
+      window.addEventListener('hashchange', checkRoute);
+      window.addEventListener('popstate', checkRoute);
+      
+      // Also check on interval for first 2 seconds (fallback)
+      const intervalId = setInterval(checkRoute, 500);
+      setTimeout(() => clearInterval(intervalId), 2000);
+      
+      return () => {
+        window.removeEventListener('hashchange', checkRoute);
+        window.removeEventListener('popstate', checkRoute);
+      };
+    }
   }, []);
 
   // Update page title based on current screen
@@ -69,6 +111,9 @@ export default function App() {
           break;
         case 's4form':
           document.title = 'S4 Formu - Koçluk Seansı';
+          break;
+        case 'admin-pricing':
+          document.title = 'Admin Panel - PersonaX';
           break;
         default:
           document.title = 'PersonaX';
@@ -115,11 +160,28 @@ export default function App() {
   };
 
   const handleEmailSignIn = () => {
+    console.log('Login attempt with:', email, password);
+    
     if (email === 'test@test.com' && password === 'test123') {
       setIsAuthenticated(true);
       saveAuthSession();
+      console.log('Login successful');
     } else {
-      Alert.alert('Invalid Credentials', 'Please use test@test.com / test123 for demo');
+      console.log('Invalid credentials, showing alert...');
+      const message = 'Demo için lütfen test@test.com / test123 kullanın';
+      
+      if (Platform.OS === 'web') {
+        // Web'de alert() kullan
+        alert(`Geçersiz Giriş Bilgileri\n\n${message}`);
+      } else {
+        // Mobile'da React Native Alert kullan
+        Alert.alert(
+          'Geçersiz Giriş Bilgileri', 
+          message,
+          [{ text: 'Tamam', style: 'default' }],
+          { cancelable: true }
+        );
+      }
     }
   };
 
@@ -132,11 +194,21 @@ export default function App() {
   };
 
   const handleAppleSignIn = () => {
-    Alert.alert('Demo Mode', 'Apple Sign In - Demo mode only');
+    const message = 'Apple Sign In - Demo modunda kullanılamaz';
+    if (Platform.OS === 'web') {
+      alert(`Demo Mode\n\n${message}`);
+    } else {
+      Alert.alert('Demo Mode', message);
+    }
   };
 
   const handleGoogleSignIn = () => {
-    Alert.alert('Demo Mode', 'Google Sign In - Demo mode only');
+    const message = 'Google Sign In - Demo modunda kullanılamaz';
+    if (Platform.OS === 'web') {
+      alert(`Demo Mode\n\n${message}`);
+    } else {
+      Alert.alert('Demo Mode', message);
+    }
   };
 
   const handleNewPersonAnalysis = () => {
@@ -1046,7 +1118,12 @@ export default function App() {
     
     if (currentScreen === 's1form' || currentScreen === 'S1Form') {
       return <S1FormScreen navigation={{ 
-        navigate: setCurrentScreen,
+        navigate: (screen: string, params?: any) => {
+          if (screen === 'paymentCheck' && params) {
+            setPaymentParams(params);
+          }
+          setCurrentScreen(screen);
+        },
         goBack: () => setCurrentScreen('s0check')
       }} />;
     }
@@ -1070,16 +1147,81 @@ export default function App() {
       return <S4FormScreen />;
     }
     
+    if (currentScreen === 'PaymentCheck') {
+      return <PaymentCheckScreen 
+        navigation={{ 
+          navigate: (screen: string, params?: any) => {
+            if (screen === 'PaymentCheck' && params) {
+              setPaymentParams(params);
+            }
+            setCurrentScreen(screen);
+          },
+          goBack: () => setCurrentScreen('home')
+        }}
+        route={{
+          params: paymentParams || {
+            serviceType: 'self_analysis',
+            formData: {},
+            onComplete: (result: any) => {
+              console.log('Analysis complete:', result);
+              // Navigate to result screen or show result
+            }
+          }
+        }}
+      />;
+    }
+    
+    if (currentScreen === 'MyAnalyses') {
+      return <MyAnalysesScreen 
+        navigation={{ 
+          navigate: (screen: string, params?: any) => {
+            if (screen === 'AnalysisResult') {
+              setAnalysisResultParams(params);
+            }
+            setCurrentScreen(screen);
+          },
+          goBack: () => setCurrentScreen('home')
+        }}
+      />;
+    }
+    
+    if (currentScreen === 'AnalysisResult') {
+      return <AnalysisResultScreen 
+        navigation={{ 
+          navigate: (screen: string, params?: any) => {
+            setCurrentScreen(screen);
+          },
+          goBack: () => setCurrentScreen('MyAnalyses')
+        }}
+        route={{ params: analysisResultParams }}
+      />;
+    }
+    
     // Home Screen
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.screenContainer}>
           {/* Header with Profile */}
           <View style={styles.homeHeader}>
-            <View>
+            <TouchableOpacity 
+              activeOpacity={1}
+              onPress={() => {
+                const newCount = secretClicks + 1;
+                setSecretClicks(newCount);
+                
+                // Reset counter after 2 seconds
+                setTimeout(() => setSecretClicks(0), 2000);
+                
+                // Open admin panel after 3 clicks
+                if (newCount >= 3) {
+                  setCurrentScreen('admin-pricing');
+                  setSecretClicks(0);
+                }
+              }}
+            >
               <Text style={styles.welcomeText}>Hoş geldiniz</Text>
               <Text style={styles.homeTitle}>My Life Coach</Text>
-            </View>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.profileButton} onPress={handleLogout}>
               <Image source={profileImage} style={styles.profileImage} />
             </TouchableOpacity>
@@ -1117,6 +1259,7 @@ export default function App() {
                 <Text style={styles.editProfileButtonText}>🖊️ Profili Düzenle</Text>
               </TouchableOpacity>
             )}
+            
 
             {/* Main Actions */}
             <View style={styles.sectionContainer}>
@@ -1140,10 +1283,10 @@ export default function App() {
                 
                 <TouchableOpacity 
                   style={styles.menuCard}
-                  onPress={() => setCurrentScreen('people')}
+                  onPress={() => setCurrentScreen('MyAnalyses')}
                 >
                   <Image source={analysisImage} style={styles.menuIconImage} />
-                  <Text style={styles.menuTitle}>Tüm Analizler</Text>
+                  <Text style={styles.menuTitle}>Tüm Analizlerim</Text>
                 </TouchableOpacity>
               </View>
             </View>

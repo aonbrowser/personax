@@ -6,8 +6,8 @@
 LOG_FILE="/var/www/personax.app/logs/monitor.log"
 DATE=$(date '+%Y-%m-%d %H:%M:%S')
 
-# Check backend API
-BACKEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health)
+# Check backend API - correct endpoint is /v1/health
+BACKEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/v1/health)
 if [ "$BACKEND_STATUS" != "200" ]; then
     echo "[$DATE] WARNING: Backend API not responding (Status: $BACKEND_STATUS)" >> $LOG_FILE
     pm2 restart backend-api

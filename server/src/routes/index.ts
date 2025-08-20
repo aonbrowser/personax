@@ -7,7 +7,7 @@ export const router = Router();
 router.get('/health', (_req, res)=> res.json({ ok: true }));
 
 // Get items by form endpoint
-router.get('/v1/items/by-form', async (req, res) => {
+router.get('/items/by-form', async (req, res) => {
   const form = String(req.query.form || '').trim();
   if (!form) {
     return res.status(400).json({ error: 'form query is required' });
@@ -31,28 +31,60 @@ router.get('/v1/items/by-form', async (req, res) => {
   }
 });
 
-router.post('/v1/analyze/self', async (req, res) => {
+router.post('/analyze/self', async (req, res) => {
   const lang = (req.header('x-user-lang') || 'en').toLowerCase();
-  const userId = req.header('x-user-id') || 'anon';
-  const r = await runSelfAnalysis(req.body, lang, userId);
+  const userIdHeader = req.header('x-user-id');
+  const userEmail = req.header('x-user-email') || 'test@test.com';
+  const targetId = req.body.targetId || 'self';
+  
+  // Get user UUID - check if header is already a UUID or email
+  let userId: string;
+  
+  // Check if x-user-id is a valid UUID format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (userIdHeader && uuidRegex.test(userIdHeader)) {
+    userId = userIdHeader;
+  } else if (userEmail && userEmail.includes('@')) {
+    // Try to get user by email
+    const userResult = await pool.query('SELECT id FROM users WHERE email = $1', [userEmail]);
+    if (userResult.rows.length > 0) {
+      userId = userResult.rows[0].id;
+    } else {
+      // Create a new user if doesn't exist
+      const newUserResult = await pool.query(
+        'INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id',
+        [userEmail, userEmail.split('@')[0]]
+      );
+      userId = newUserResult.rows[0].id;
+    }
+  } else {
+    // Use test user as fallback
+    const userResult = await pool.query('SELECT id FROM users WHERE email = $1', ['test@test.com']);
+    userId = userResult.rows[0].id;
+  }
+  
+  const r = await runSelfAnalysis(req.body, lang, userId, targetId);
   res.json(r);
 });
 
-router.post('/v1/analyze/other', async (req, res) => {
+router.post('/analyze/other', async (req, res) => {
   const lang = (req.header('x-user-lang') || 'en').toLowerCase();
   const userId = req.header('x-user-id') || 'anon';
-  const r = await runOtherAnalysis(req.body, lang, userId);
+  const targetId = req.body.targetId || req.body.personName || 'unknown'; // Person being analyzed
+  const r = await runOtherAnalysis(req.body, lang, userId, targetId);
   res.json(r);
 });
 
-router.post('/v1/analyze/dyad', async (req, res) => {
+router.post('/analyze/dyad', async (req, res) => {
   const lang = (req.header('x-user-lang') || 'en').toLowerCase();
   const userId = req.header('x-user-id') || 'anon';
-  const r = await runDyadReport(req.body, lang, userId);
+  // For dyad, targetId could be combination of two person IDs
+  const targetId = req.body.targetId || `${req.body.person1Name}-${req.body.person2Name}` || 'dyad';
+  const r = await runDyadReport(req.body, lang, userId, targetId);
   res.json(r);
 });
 
-router.post('/v1/coach', async (req, res) => {
+router.post('/coach', async (req, res) => {
   const lang = (req.header('x-user-lang') || 'en').toLowerCase();
   const userId = req.header('x-user-id') || 'anon';
   const r = await runCoach(req.body, lang, userId);
@@ -60,9 +92,188 @@ router.post('/v1/coach', async (req, res) => {
 });
 
 // Simple admin endpoint for language incidents (paged)
-router.get('/v1/admin/language-incidents', async (req, res) => {
+router.get('/admin/language-incidents', async (req, res) => {
   const limit = Math.max(1, Math.min(Number(req.query.limit)||50, 200));
   const { rows } = await pool.query(`SELECT id, user_id, report_type, user_language, detected_language, content_preview, created_at
                                      FROM language_incidents ORDER BY created_at DESC LIMIT $1`, [limit]);
   res.json({ items: rows });
+});
+
+// Get user's usage summary
+router.get('/user/usage', async (req, res) => {
+  const userId = req.header('x-user-id') || 'anon';
+  const { UsageTracker } = await import('../services/usage-tracker.js');
+  const summary = await UsageTracker.getUserUsageSummary(userId);
+  res.json({ usage: summary });
+});
+
+// Get user's analyses
+router.get('/user/analyses', async (req, res) => {
+  const userEmail = req.header('x-user-email') || 'test@test.com';
+  
+  // Get user ID from email
+  let userId = null;
+  if (userEmail && userEmail.includes('@')) {
+    const userResult = await pool.query('SELECT id FROM users WHERE email = $1', [userEmail]);
+    if (userResult.rows.length > 0) {
+      userId = userResult.rows[0].id;
+    }
+  }
+  
+  if (!userId) {
+    return res.json({ analyses: [] });
+  }
+  
+  try {
+    // First, update any processing analyses older than 8 minutes to error status
+    await pool.query(
+      `UPDATE analysis_results 
+       SET status = 'error', 
+           error_message = 'Analysis timed out after 8 minutes'
+       WHERE user_id = $1 
+         AND status = 'processing' 
+         AND created_at < NOW() - INTERVAL '8 minutes'`,
+      [userId]
+    );
+    
+    // Then fetch all analyses
+    const { rows } = await pool.query(
+      `SELECT id, analysis_type, status, result_markdown, error_message, 
+              created_at, completed_at, s0_data, s1_data
+       FROM analysis_results 
+       WHERE user_id = $1 
+       ORDER BY created_at DESC 
+       LIMIT 50`,
+      [userId]
+    );
+    res.json({ analyses: rows });
+  } catch (error) {
+    console.error('Error fetching analyses:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// Delete analysis
+router.delete('/user/analyses/:id', async (req, res) => {
+  const userEmail = req.header('x-user-email') || 'test@test.com';
+  const analysisId = req.params.id;
+  
+  // Validate UUID format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(analysisId)) {
+    console.log('Invalid UUID format:', analysisId);
+    return res.status(400).json({ error: 'Invalid analysis ID format' });
+  }
+  
+  // Get user ID from email
+  let userId = null;
+  if (userEmail && userEmail.includes('@')) {
+    const userResult = await pool.query('SELECT id FROM users WHERE email = $1', [userEmail]);
+    if (userResult.rows.length > 0) {
+      userId = userResult.rows[0].id;
+    }
+  }
+  
+  if (!userId) {
+    return res.status(401).json({ error: 'User not found' });
+  }
+  
+  try {
+    const result = await pool.query(
+      'DELETE FROM analysis_results WHERE id = $1 AND user_id = $2 RETURNING id',
+      [analysisId, userId]
+    );
+    
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Analysis not found or unauthorized' });
+    }
+    
+    res.json({ success: true, message: 'Analysis deleted' });
+  } catch (error) {
+    console.error('Error deleting analysis:', error);
+    res.status(500).json({ error: 'Failed to delete analysis' });
+  }
+});
+
+// Retry analysis
+router.post('/analyze/retry', async (req, res) => {
+  const userEmail = req.header('x-user-email') || 'test@test.com';
+  const { analysisId } = req.body;
+  
+  if (!analysisId) {
+    return res.status(400).json({ error: 'Analysis ID required' });
+  }
+  
+  // Get user ID from email
+  let userId = null;
+  if (userEmail && userEmail.includes('@')) {
+    const userResult = await pool.query('SELECT id FROM users WHERE email = $1', [userEmail]);
+    if (userResult.rows.length > 0) {
+      userId = userResult.rows[0].id;
+    }
+  }
+  
+  if (!userId) {
+    return res.status(401).json({ error: 'User not found' });
+  }
+  
+  try {
+    // Get the failed analysis
+    const { rows } = await pool.query(
+      `SELECT * FROM analysis_results 
+       WHERE id = $1 AND user_id = $2 AND status = 'error'`,
+      [analysisId, userId]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Analysis not found or cannot be retried' });
+    }
+    
+    const analysis = rows[0];
+    
+    // Update status to processing
+    await pool.query(
+      `UPDATE analysis_results 
+       SET status = 'processing', retry_count = retry_count + 1 
+       WHERE id = $1`,
+      [analysisId]
+    );
+    
+    // Re-run the analysis in background
+    const lang = (req.header('x-user-lang') || 'tr').toLowerCase();
+    
+    // Combine S0 and S1 data
+    const combinedData = {
+      s0: analysis.s0_data,
+      s1: analysis.s1_data
+    };
+    
+    // Run analysis asynchronously
+    runSelfAnalysis(combinedData, lang, userId, 'self').then(async (result) => {
+      // Update with result
+      await pool.query(
+        `UPDATE analysis_results 
+         SET status = 'completed', 
+             result_markdown = $1, 
+             lifecoaching_notes = $2,
+             completed_at = NOW() 
+         WHERE id = $3`,
+        [result.markdown, result.lifecoachingNotes, analysisId]
+      );
+    }).catch(async (error) => {
+      // Update with error
+      await pool.query(
+        `UPDATE analysis_results 
+         SET status = 'error', 
+             error_message = $1 
+         WHERE id = $2`,
+        [error.message || 'Analysis failed', analysisId]
+      );
+    });
+    
+    res.json({ success: true, message: 'Analysis retry started' });
+  } catch (error) {
+    console.error('Error retrying analysis:', error);
+    res.status(500).json({ error: 'Failed to retry analysis' });
+  }
 });

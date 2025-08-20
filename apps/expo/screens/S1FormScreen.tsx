@@ -37,6 +37,18 @@ export default function S1FormScreen({ navigation }: any) {
     console.log('S1FormScreen mounted');
     loadItems();
     loadSavedAnswers();
+    
+    // Store start time for response time calculation
+    try {
+      if (Platform.OS === 'web') {
+        const existingStartTime = localStorage.getItem('S1_start_time');
+        if (!existingStartTime) {
+          localStorage.setItem('S1_start_time', Date.now().toString());
+        }
+      }
+    } catch (error) {
+      console.error('Error storing start time:', error);
+    }
   }, []);
 
   // Section order and Turkish titles
@@ -183,13 +195,59 @@ export default function S1FormScreen({ navigation }: any) {
       // All required questions answered - proceed to analysis
       setSaving(true);
       saveAnswers();
-      Alert.alert(
-        '✅ Form Tamamlandı',
-        'Tüm zorunlu sorular yanıtlandı. Analiz için devam edebilirsiniz.',
-        [
-          { text: 'Analiz Et', onPress: () => navigation.navigate('S1Analysis') }
-        ]
-      );
+      
+      // Get S0 answers from localStorage
+      let s0Answers = {};
+      try {
+        if (Platform.OS === 'web') {
+          const s0Data = localStorage.getItem('S0_profile_answers');
+          console.log('S0 data from localStorage:', s0Data);
+          if (s0Data) {
+            s0Answers = JSON.parse(s0Data);
+            console.log('Parsed S0 answers:', s0Answers);
+          } else {
+            console.log('No S0 data found in localStorage');
+          }
+        }
+      } catch (error) {
+        console.error('Error loading S0 answers:', error);
+      }
+      
+      // Calculate response time (stored in localStorage)
+      let responseTime = 300; // Default 5 minutes
+      try {
+        if (Platform.OS === 'web') {
+          const startTime = localStorage.getItem('S1_start_time');
+          if (startTime) {
+            responseTime = Math.floor((Date.now() - parseInt(startTime)) / 1000);
+          }
+        }
+      } catch (error) {
+        console.error('Error calculating response time:', error);
+      }
+      
+      // Combine S0 and S1 data
+      const combinedData = {
+        s0: s0Answers,
+        s1: answers,
+        responseTime: responseTime
+      };
+      
+      console.log('Combined data being sent:', {
+        s0_keys: Object.keys(s0Answers),
+        s1_keys: Object.keys(answers),
+        responseTime
+      });
+      
+      // Navigate directly to payment check screen with combined data
+      navigation.navigate('PaymentCheck', {
+        serviceType: 'self_analysis',
+        formData: combinedData,
+        onComplete: (result: any) => {
+          console.log('Analysis result:', result);
+          // No need for alert here, will navigate to MyAnalyses
+        }
+      });
     }
   };
 
