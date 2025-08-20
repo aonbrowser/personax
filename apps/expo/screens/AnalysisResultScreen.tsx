@@ -7,7 +7,7 @@ import {
   StyleSheet,
   SafeAreaView,
 } from 'react-native';
-import ReactMarkdown from 'react-markdown';
+import Markdown from 'react-native-markdown-display';
 
 interface AnalysisResultScreenProps {
   navigation: any;
@@ -53,12 +53,123 @@ export default function AnalysisResultScreen({ navigation, route }: AnalysisResu
       
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
         <View style={styles.markdownContainer}>
-          <Text style={styles.markdownText}>{result.markdown}</Text>
+          <Markdown style={markdownStyles}>
+            {result.markdown}
+          </Markdown>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const markdownStyles = StyleSheet.create({
+  body: {
+    fontSize: 16,
+    lineHeight: 32,
+    color: '#2D3748',
+  },
+  heading1: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#1A202C',
+    marginVertical: 16,
+    lineHeight: 36,
+  },
+  heading2: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1A202C',
+    marginVertical: 14,
+    lineHeight: 32,
+  },
+  heading3: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2D3748',
+    marginVertical: 12,
+    lineHeight: 28,
+  },
+  paragraph: {
+    fontSize: 16,
+    lineHeight: 32,
+    color: '#2D3748',
+    marginVertical: 8,
+  },
+  strong: {
+    fontWeight: 'bold',
+    color: '#1A202C',
+  },
+  em: {
+    fontStyle: 'italic',
+  },
+  bullet_list: {
+    marginVertical: 8,
+  },
+  ordered_list: {
+    marginVertical: 8,
+  },
+  list_item: {
+    flexDirection: 'row',
+    marginVertical: 4,
+  },
+  bullet_list_icon: {
+    fontSize: 16,
+    lineHeight: 32,
+    marginRight: 8,
+  },
+  ordered_list_icon: {
+    fontSize: 16,
+    lineHeight: 32,
+    marginRight: 8,
+  },
+  code_inline: {
+    backgroundColor: '#F7FAFC',
+    borderColor: '#E2E8F0',
+    borderWidth: 1,
+    borderRadius: 3,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    fontFamily: 'monospace',
+    fontSize: 14,
+  },
+  code_block: {
+    backgroundColor: '#F7FAFC',
+    borderColor: '#E2E8F0',
+    borderWidth: 1,
+    borderRadius: 3,
+    padding: 12,
+    marginVertical: 8,
+    fontFamily: 'monospace',
+    fontSize: 14,
+  },
+  blockquote: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#4299E1',
+    paddingLeft: 16,
+    marginVertical: 8,
+    fontStyle: 'italic',
+  },
+  hr: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    marginVertical: 16,
+  },
+  table: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginVertical: 8,
+  },
+  tr: {
+    flexDirection: 'column',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  td: {
+    padding: 8,
+    fontSize: 16,
+    lineHeight: 24,
+  },
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -106,11 +217,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
-  },
-  markdownText: {
-    fontSize: 15,
-    lineHeight: 24,
-    color: '#2D3748',
   },
   errorContainer: {
     flex: 1,

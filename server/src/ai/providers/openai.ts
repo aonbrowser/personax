@@ -1,12 +1,32 @@
 import OpenAI from 'openai';
 import { ENV } from '../../config/env.js';
+import { chatCompletionGemini } from './requesty.js';
 
 export const openai = new OpenAI({ 
   apiKey: ENV.OPENAI_API_KEY 
 });
 
+// Set to true to use Gemini, false to use GPT-5
+const USE_GEMINI = true;
+
 export async function chatCompletionHigh(messages: Array<{role:'system'|'user'|'assistant', content:string}>) {
   try {
+    // Use Gemini if enabled
+    if (USE_GEMINI) {
+      console.log('Using Gemini 2.5 Pro via Requesty.ai');
+      const result = await chatCompletionGemini(messages);
+      return {
+        content: result.content,
+        tokenUsage: result.usage ? {
+          inputTokens: result.usage.prompt_tokens || 0,
+          outputTokens: result.usage.completion_tokens || 0,
+          totalTokens: result.usage.total_tokens || 0,
+          modelName: 'gemini-2.5-pro'
+        } : null
+      };
+    }
+    
+    // Original GPT-5 code (preserved)
     // Extract system message for instructions
     const systemMsg = messages.find(m => m.role === 'system');
     const instructions = systemMsg ? systemMsg.content : "You are a helpful assistant.";
@@ -29,7 +49,6 @@ export async function chatCompletionHigh(messages: Array<{role:'system'|'user'|'
       model: "gpt-5",
       input,
       instructions,
-      reasoning: { effort: "high" },
       text: { verbosity: "high" },
       max_output_tokens: 16384  // Increased for more detailed analysis
     });
@@ -124,6 +143,18 @@ export async function detectLanguageWithMini(text: string, expectedLang: string)
 export async function retryEnforceLanguage(messages: Array<{role:'system'|'user'|'assistant', content:string}>, userLang: string, maxTries=2) {
   let result = await chatCompletionHigh(messages);
   let content = result.content;
+  
+  // Skip language check if LANG_CHECK is false
+  if (!ENV.LANG_CHECK) {
+    console.log('Language check disabled (LANG_CHECK=false)');
+    return { 
+      content, 
+      ok: true, 
+      detected: userLang, 
+      tokenUsage: result.tokenUsage 
+    };
+  }
+  
   let check = await detectLanguageWithMini(content, userLang);
   let tries = 0;
   
@@ -132,7 +163,7 @@ export async function retryEnforceLanguage(messages: Array<{role:'system'|'user'
     inputTokens: (result.tokenUsage?.inputTokens || 0) + (check.tokenUsage?.inputTokens || 0),
     outputTokens: (result.tokenUsage?.outputTokens || 0) + (check.tokenUsage?.outputTokens || 0),
     totalTokens: (result.tokenUsage?.totalTokens || 0) + (check.tokenUsage?.totalTokens || 0),
-    modelName: 'gpt-5' // Primary model
+    modelName: result.tokenUsage?.modelName || 'unknown'
   };
   
   while (!check.ok && tries < maxTries) {

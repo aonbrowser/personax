@@ -205,12 +205,19 @@ export default function S1FormScreen({ navigation }: any) {
           if (s0Data) {
             s0Answers = JSON.parse(s0Data);
             console.log('Parsed S0 answers:', s0Answers);
+            console.log('S0 answer count:', Object.keys(s0Answers).length);
+            // Log some specific values to verify
+            console.log('S0 Age:', s0Answers['S0_AGE']);
+            console.log('S0 Gender:', s0Answers['S0_GENDER']);
+            console.log('S0 Life Goal:', s0Answers['S0_LIFE_GOAL']);
           } else {
             console.log('No S0 data found in localStorage');
+            alert('UYARI: S0 profil verileri bulunamadı! Lütfen önce profil formunu doldurun.');
           }
         }
       } catch (error) {
         console.error('Error loading S0 answers:', error);
+        alert('HATA: S0 verileri yüklenemedi: ' + error);
       }
       
       // Calculate response time (stored in localStorage)
@@ -233,20 +240,53 @@ export default function S1FormScreen({ navigation }: any) {
         responseTime: responseTime
       };
       
-      console.log('Combined data being sent:', {
-        s0_keys: Object.keys(s0Answers),
-        s1_keys: Object.keys(answers),
-        responseTime
+      console.log('=== COMBINED DATA TO SEND ===');
+      console.log('S0 answers count:', Object.keys(s0Answers).length);
+      console.log('S0 keys:', Object.keys(s0Answers));
+      console.log('S1 answers count:', Object.keys(answers).length);
+      console.log('S1 keys (first 10):', Object.keys(answers).slice(0, 10));
+      console.log('Sample S0 data:', {
+        age: s0Answers['S0_AGE'],
+        gender: s0Answers['S0_GENDER'],
+        lifeGoal: s0Answers['S0_LIFE_GOAL']
       });
+      console.log('Sample S1 data:', {
+        big5_1: answers['S1_BIG5_001'],
+        big5_2: answers['S1_BIG5_002'],
+        disc_1: answers['S1_DISC_001']
+      });
+      console.log('Response time:', responseTime);
+      console.log('Full combinedData:', JSON.stringify(combinedData));
+      console.log('==============================');
       
-      // Navigate directly to payment check screen with combined data
-      navigation.navigate('PaymentCheck', {
+      // Double check data before navigation
+      const navigationParams = {
         serviceType: 'self_analysis',
         formData: combinedData,
         onComplete: (result: any) => {
           console.log('Analysis result:', result);
           // No need for alert here, will navigate to MyAnalyses
         }
+      };
+      
+      console.log('=== NAVIGATION PARAMS ===');
+      console.log('Params to send:', navigationParams);
+      console.log('FormData in params has s0:', !!navigationParams.formData.s0);
+      console.log('FormData in params has s1:', !!navigationParams.formData.s1);
+      console.log('FormData s0 count:', navigationParams.formData.s0 ? Object.keys(navigationParams.formData.s0).length : 0);
+      console.log('FormData s1 count:', navigationParams.formData.s1 ? Object.keys(navigationParams.formData.s1).length : 0);
+      console.log('=========================');
+      
+      // Store data in localStorage before navigation (React Navigation loses large objects)
+      if (Platform.OS === 'web') {
+        localStorage.setItem('pending_analysis_data', JSON.stringify(combinedData));
+        console.log('Stored analysis data in localStorage');
+      }
+      
+      // Navigate directly to payment check screen (data will be read from localStorage)
+      navigation.navigate('PaymentCheck', {
+        serviceType: 'self_analysis',
+        onComplete: navigationParams.onComplete
       });
     }
   };

@@ -36,6 +36,10 @@ export default function App() {
   const [secretClicks, setSecretClicks] = useState(0);
   const [paymentParams, setPaymentParams] = useState<any>(null);
   const [analysisResultParams, setAnalysisResultParams] = useState<any>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [existingS0Data, setExistingS0Data] = useState<any>(null);
+  const [existingS1Data, setExistingS1Data] = useState<any>(null);
+  const [editAnalysisId, setEditAnalysisId] = useState<string | null>(null);
 
   // Check for existing session on mount and handle URL routing
   useEffect(() => {
@@ -1177,8 +1181,17 @@ export default function App() {
           navigate: (screen: string, params?: any) => {
             if (screen === 'AnalysisResult') {
               setAnalysisResultParams(params);
+              setCurrentScreen(screen);
+            } else if (screen === 'S0Form' && params?.editMode) {
+              // Handle edit mode navigation
+              setEditMode(true);
+              setExistingS0Data(params.existingS0Data);
+              setExistingS1Data(params.existingS1Data);
+              setEditAnalysisId(params.analysisId);
+              setCurrentScreen('s0profile');
+            } else {
+              setCurrentScreen(screen);
             }
-            setCurrentScreen(screen);
           },
           goBack: () => setCurrentScreen('home')
         }}
@@ -1267,7 +1280,42 @@ export default function App() {
               <View style={styles.menuGrid}>
                 <TouchableOpacity 
                   style={styles.menuCard}
-                  onPress={handleSelfAnalysis}
+                  onPress={async () => {
+                    // Check if user has any self analysis
+                    try {
+                      const userEmail = Platform.OS === 'web' ? 
+                        localStorage.getItem('userEmail') || 'test@test.com' : 
+                        'test@test.com';
+                      
+                      const response = await fetch(`http://localhost:8080/v1/user/analyses`, {
+                        headers: {
+                          'x-user-email': userEmail,
+                        },
+                      });
+                      
+                      if (response.ok) {
+                        const data = await response.json();
+                        const selfAnalyses = (data.analyses || []).filter(
+                          (a: any) => a.analysis_type === 'self'
+                        );
+                        
+                        if (selfAnalyses.length > 0) {
+                          // User has self analysis, go to MyAnalyses screen
+                          setCurrentScreen('MyAnalyses');
+                        } else {
+                          // No self analysis, start the form flow
+                          handleSelfAnalysis();
+                        }
+                      } else {
+                        // On error, default to starting form flow
+                        handleSelfAnalysis();
+                      }
+                    } catch (error) {
+                      console.error('Error checking analyses:', error);
+                      // On error, default to starting form flow
+                      handleSelfAnalysis();
+                    }
+                  }}
                 >
                   <Image source={profileImage} style={styles.menuIconImage} />
                   <Text style={styles.menuTitle}>Kendi Analizim</Text>

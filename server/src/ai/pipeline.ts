@@ -3,6 +3,7 @@ import path from 'node:path';
 import { retryEnforceLanguage, detectLanguageWithMini } from './providers/openai.js';
 import { pool } from '../db/pool.js';
 import { UsageTracker } from '../services/usage-tracker.js';
+import { processPayloadSimple } from './simple-pipeline.js';
 
 function loadPrompt(file:string) {
   const p = path.resolve(process.cwd(), 'src', 'prompts', file);
@@ -54,12 +55,40 @@ export async function runSelfAnalysis(payload:any, userLang:string, userId:strin
     
     // Create or update analysis record
     if (!currentAnalysisId) {
-      // Create new analysis record
+      // Extract actual responses from s0Items and s1Items for storage
+      const s0DataForStorage = {};
+      const s1DataForStorage = {};
+      
+      // If s0Items provided, extract responses
+      if (payload.s0Items && payload.s0Items.length > 0) {
+        payload.s0Items.forEach(item => {
+          if (item.response !== undefined) {
+            s0DataForStorage[item.id] = item.response;
+          }
+        });
+      } else {
+        // Fallback to old format
+        Object.assign(s0DataForStorage, payload.s0 || {});
+      }
+      
+      // If s1Items provided, extract responses
+      if (payload.s1Items && payload.s1Items.length > 0) {
+        payload.s1Items.forEach(item => {
+          if (item.response !== undefined) {
+            s1DataForStorage[item.id] = item.response;
+          }
+        });
+      } else {
+        // Fallback to old format
+        Object.assign(s1DataForStorage, payload.s1 || {});
+      }
+      
+      // Create new analysis record with extracted data
       const { rows } = await pool.query(
         `INSERT INTO analysis_results (user_id, analysis_type, status, s0_data, s1_data, created_at)
          VALUES ($1, 'self', 'processing', $2, $3, NOW())
          RETURNING id`,
-        [userId, payload.s0 || {}, payload.s1 || {}]
+        [userId, s0DataForStorage, s1DataForStorage]
       );
       currentAnalysisId = rows[0].id;
     }
@@ -67,94 +96,35 @@ export async function runSelfAnalysis(payload:any, userLang:string, userId:strin
   // Load the new unified S1 prompt
   const sys = loadPrompt('s1.md');
   
-  // Extract S0 and S1 data from payload
-  const s0Data = payload.s0 || {};
-  const s1Responses = payload.s1 || {};
-  const s0Items = payload.s0Items || [];
-  const s1Items = payload.s1Items || [];
-  const responseTime = payload.responseTime;
+  // Use simple processor
+  const processed = processPayloadSimple(payload);
+  const finalS0Items = processed.s0Items;
+  const finalS1Items = processed.s1Items;
+  const { age, gender } = processed.demographics;
   
-  // Determine target language: S0.S0_LANG ?? userLang
-  const targetLang = s0Data.S0_LANG || s0Data.lang || userLang;
-  
-  // If items not provided, fetch from database and merge with responses
-  let finalS0Items = s0Items;
-  let finalS1Items = s1Items;
-  
-  if (finalS0Items.length === 0) {
-    // Fetch S0 items from database
-    const { rows: s0ItemRows } = await pool.query(
-      `SELECT id, form, section, subscale, text_tr as text, type, options_tr as options, 
-              reverse_scored, scoring_key, weight, notes
-       FROM items WHERE form = 'S0_profile' ORDER BY display_order, id`
-    );
-    
-    finalS0Items = s0ItemRows.map(item => ({
-      id: item.id,
-      text: item.text,
-      section: item.section,
-      subscale: item.subscale,
-      type: item.type,
-      response_value: s0Data[item.id],
-      response_label: s0Data[item.id]?.toString() || '',
-      weight: item.weight || 1,
-      note: item.notes || 'context'
-    }));
-  }
-  
-  if (finalS1Items.length === 0) {
-    // Fetch S1 items from database
-    const { rows: s1ItemRows } = await pool.query(
-      `SELECT id, form, section, subscale, text_tr as text, type, options_tr as options, 
-              reverse_scored, scoring_key, weight, notes
-       FROM items WHERE form = 'S1_self' ORDER BY display_order, id`
-    );
-    
-    finalS1Items = s1ItemRows.map(item => {
-      const responseValue = s1Responses[item.id];
-      let responseLabel = '';
-      
-      // Convert response value to label based on type
-      if (item.type === 'Likert5' && typeof responseValue === 'number') {
-        const labels = ['Strongly Disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly Agree'];
-        responseLabel = labels[responseValue - 1] || responseValue.toString();
-      } else if (item.type === 'Likert7' && typeof responseValue === 'number') {
-        responseLabel = responseValue.toString();
-      } else if (item.type === 'ForcedChoice2') {
-        responseLabel = responseValue === 'A' ? 'Option A' : 'Option B';
-      } else {
-        responseLabel = responseValue?.toString() || '';
-      }
-      
-      return {
-        id: item.id,
-        text: item.text,
-        section: item.section,
-        subscale: item.subscale,
-        type: item.type,
-        options: item.options?.split('|') || [],
-        reverse_scored: item.reverse_scored,
-        response_value: responseValue,
-        response_label: responseLabel,
-        weight: item.weight || 1,
-        scoring_key: item.scoring_key ? JSON.parse(item.scoring_key) : {},
-        facet: item.notes
-      };
-    });
-  }
+  // Determine target language
+  const targetLang = userLang;
   
   // Prepare the data blocks for the prompt
-  const s0Block = `<S0>\n${JSON.stringify(s0Data, null, 2)}\n</S0>`;
+  // REMOVED s0Block - it was redundant since s0ItemsBlock already contains all responses
   const s0ItemsBlock = `<S0_ITEMS>\n${JSON.stringify(finalS0Items, null, 2)}\n</S0_ITEMS>`;
   const s1ItemsBlock = `<S1_ITEMS>\n${JSON.stringify(finalS1Items, null, 2)}\n</S1_ITEMS>`;
   
-  // Optional: Calculate scores server-side if needed (for backward compatibility)
-  let s1ScoresBlock = '';
-  // Commenting out server-side scoring as AI will handle it
-  // const s1Scores = await S1Scorer.calculateScores(s1Responses, responseTime);
-  // s1ScoresBlock = `<S1_SCORES>\n${JSON.stringify(s1Scores, null, 2)}\n</S1_SCORES>\n\n`;
+  // Demographics already extracted by processor
+  const locale = targetLang;
+  
+  // Debug logging
+  console.log('[PIPELINE] Final data check:');
+  console.log('- Demographics:', { age, gender, locale });
+  console.log('- S0 items with responses:', finalS0Items.filter(i => i.response_value).length);
+  console.log('- S1 items with responses:', finalS1Items.filter(i => i.response_value).length);
   
   const reporterMetaBlock = `<REPORTER_META>\n${JSON.stringify({
+    demographics: {
+      age: age,
+      gender: gender,
+      locale: locale
+    },
     focus_areas: ['self_growth', 'relationships', 'work'],
     target_lang: targetLang,
     render_options: { 
@@ -167,11 +137,8 @@ export async function runSelfAnalysis(payload:any, userLang:string, userId:strin
     }
   }, null, 2)}\n</REPORTER_META>`;
   
-  // Optional: Include raw responses for context
-  const rawResponsesBlock = '';
-  
-  // Combine prompt with data
-  const fullInput = `${s0Block}\n\n${s1ScoresBlock}${s0ItemsBlock}\n\n${s1ItemsBlock}\n\n${reporterMetaBlock}${rawResponsesBlock ? '\n\n' + rawResponsesBlock : ''}`;
+  // Combine prompt with data (removed s0Block as it was redundant)
+  const fullInput = `${s0ItemsBlock}\n\n${s1ItemsBlock}\n\n${reporterMetaBlock}`;
   
   const messages: Msg[] = [ 
     { role:'system', content: sys }, 

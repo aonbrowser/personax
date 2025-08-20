@@ -13,6 +13,8 @@ router.get('/items/by-form', async (req, res) => {
     return res.status(400).json({ error: 'form query is required' });
   }
   
+  console.log(`[DEBUG] Fetching items for form: ${form}`);
+  
   try {
     const { rows } = await pool.query(
       `SELECT id, form, section, subscale, text_tr, type, options_tr, reverse_scored, scoring_key, weight, notes 
@@ -21,6 +23,7 @@ router.get('/items/by-form', async (req, res) => {
        ORDER BY COALESCE(display_order, 99999), id`,
       [form]
     );
+    console.log(`[DEBUG] Found ${rows.length} items for form: ${form}`);
     res.json({ items: rows });
   } catch (e) {
     console.error('Error fetching items by form:', e);
@@ -37,6 +40,24 @@ router.post('/analyze/self', async (req, res) => {
   const userEmail = req.header('x-user-email') || 'test@test.com';
   const targetId = req.body.targetId || 'self';
   
+  // LOG: Print received data
+  console.log('\n=== RECEIVED AT BACKEND ===');
+  console.log('User Email:', userEmail);
+  console.log('Request body keys:', Object.keys(req.body));
+  if (req.body.s0) {
+    console.log('S0 keys received:', Object.keys(req.body.s0));
+    console.log('S0 sample values:', {
+      age: req.body.s0.S0_AGE,
+      gender: req.body.s0.S0_GENDER,
+      lifeGoal: req.body.s0.S0_LIFE_GOAL?.substring(0, 50),
+      happyMemory: req.body.s0.S0_HAPPY_MEMORY?.substring(0, 50)
+    });
+  }
+  if (req.body.s1) {
+    console.log('S1 keys received:', Object.keys(req.body.s1).slice(0, 10), '...');
+  }
+  console.log('===========================\n');
+  
   // Get user UUID - check if header is already a UUID or email
   let userId: string;
   
@@ -52,8 +73,8 @@ router.post('/analyze/self', async (req, res) => {
     } else {
       // Create a new user if doesn't exist
       const newUserResult = await pool.query(
-        'INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id',
-        [userEmail, userEmail.split('@')[0]]
+        'INSERT INTO users (email) VALUES ($1) RETURNING id',
+        [userEmail]
       );
       userId = newUserResult.rows[0].id;
     }

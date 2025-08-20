@@ -32,13 +32,54 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [pricingOptions, setPricingOptions] = useState<any>(null);
   const [selectedOption, setSelectedOption] = useState<string>('');
+  const [storedFormData] = useState(() => {
+    // Try to get from localStorage first (for web)
+    if (Platform.OS === 'web') {
+      const savedData = localStorage.getItem('pending_analysis_data');
+      if (savedData) {
+        try {
+          const parsed = JSON.parse(savedData);
+          console.log('=== LOADED FROM LOCALSTORAGE ===');
+          console.log('S0 count:', parsed.s0 ? Object.keys(parsed.s0).length : 0);
+          console.log('S1 count:', parsed.s1 ? Object.keys(parsed.s1).length : 0);
+          // Clear after reading to avoid reuse
+          localStorage.removeItem('pending_analysis_data');
+          return parsed;
+        } catch (e) {
+          console.error('Error parsing localStorage data:', e);
+        }
+      }
+    }
+    
+    // Fallback to route params (shouldn't happen now)
+    console.log('WARNING: No data in localStorage, checking route params');
+    return formData || {};
+  });
   const userEmail = 'test@test.com'; // Get from auth context in real app
 
+  // LOG: Check what formData we received
+  console.log('=== PAYMENTCHECK RECEIVED ===');
+  console.log('ServiceType:', serviceType);
+  console.log('StoredFormData exists:', !!storedFormData);
+  console.log('StoredFormData keys:', Object.keys(storedFormData));
+  if (storedFormData && Object.keys(storedFormData).length > 0) {
+    console.log('FormData s0 keys:', storedFormData.s0 ? Object.keys(storedFormData.s0).length + ' keys' : 'NO S0');
+    console.log('FormData s1 keys:', storedFormData.s1 ? Object.keys(storedFormData.s1).length + ' keys' : 'NO S1');
+  } else {
+    console.log('WARNING: StoredFormData is empty!');
+  }
+  console.log('=============================');
+
   useEffect(() => {
-    console.log('PaymentCheckScreen mounted - NAVIGATING IMMEDIATELY');
+    console.log('PaymentCheckScreen mounted');
+    console.log('Route params in useEffect:', route.params);
+    console.log('StoredFormData in useEffect:', storedFormData ? Object.keys(storedFormData) : 'null');
     
-    // IMMEDIATELY navigate to MyAnalyses - DO NOT WAIT
-    navigation.navigate('MyAnalyses');
+    // Small delay to ensure data is properly stored
+    setTimeout(() => {
+      console.log('Navigating to MyAnalyses after delay');
+      navigation.navigate('MyAnalyses');
+    }, 100);
     
     // Then do everything else in background
     setTimeout(() => {
@@ -133,6 +174,16 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
   };
 
   const proceedWithAnalysis = (subscriptionId?: string) => {
+    // Use storedFormData from state to avoid closure issues
+    const analysisData = storedFormData;
+    
+    if (!analysisData) {
+      console.error('ERROR: No formData available for analysis!');
+      console.error('storedFormData:', storedFormData);
+      console.error('route.params.formData:', route.params.formData);
+      Alert.alert('Hata', 'Form verileri bulunamadı. Lütfen formu tekrar doldurun.');
+      return;
+    }
     // Navigate IMMEDIATELY
     console.log('NAVIGATING TO MyAnalyses NOW!');
     navigation.navigate('MyAnalyses');
@@ -157,6 +208,23 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
 
       // Call the analysis API in background
       const analysisEndpoint = getAnalysisEndpoint();
+      
+      // LOG: Print the actual data being sent
+      console.log('=== SENDING TO API ===');
+      console.log('Endpoint:', `${API_URL}/v1${analysisEndpoint}`);
+      console.log('FormData being sent:', JSON.stringify(analysisData, null, 2));
+      console.log('S0 data keys:', analysisData.s0 ? Object.keys(analysisData.s0) : 'No S0 data');
+      console.log('S1 data keys:', analysisData.s1 ? Object.keys(analysisData.s1) : 'No S1 data');
+      if (analysisData.s0) {
+        console.log('Sample S0 values:', {
+          age: analysisData.s0.S0_AGE,
+          gender: analysisData.s0.S0_GENDER,
+          lifeGoal: analysisData.s0.S0_LIFE_GOAL,
+          happyMemory: analysisData.s0.S0_HAPPY_MEMORY
+        });
+      }
+      console.log('======================');
+      
       fetch(`${API_URL}/v1${analysisEndpoint}`, {
         method: 'POST',
         headers: {
@@ -165,7 +233,7 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
           'x-user-lang': 'tr',
           'x-user-id': userEmail,
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(analysisData),
       }).then(response => {
         if (response.ok && onComplete) {
           response.json().then(result => {

@@ -8,7 +8,8 @@ module.exports = {
       env: {
         NODE_ENV: 'development',
         PORT: 8080,
-        DATABASE_URL: 'postgres://postgres:postgres@localhost:5432/personax_app'
+        DATABASE_URL: 'postgresql://postgres:PersonaX2025Secure@localhost:5432/personax_app',
+        LANG_CHECK: 'false'
       },
       watch: false,
       max_memory_restart: '1G',

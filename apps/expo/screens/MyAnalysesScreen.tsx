@@ -31,6 +31,8 @@ export default function MyAnalysesScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [userEmail, setUserEmail] = useState('test@test.com');
+  const [hasSelfAnalysis, setHasSelfAnalysis] = useState(false);
+  const [latestSelfAnalysis, setLatestSelfAnalysis] = useState<AnalysisResult | null>(null);
 
   useEffect(() => {
     loadUserEmail();
@@ -87,7 +89,20 @@ export default function MyAnalysesScreen({ navigation }: any) {
 
       if (response.ok) {
         const data = await response.json();
-        setAnalyses(data.analyses || []);
+        const allAnalyses = data.analyses || [];
+        setAnalyses(allAnalyses);
+        
+        // Check if user has any self analysis
+        const selfAnalyses = allAnalyses.filter((a: AnalysisResult) => a.analysis_type === 'self');
+        setHasSelfAnalysis(selfAnalyses.length > 0);
+        
+        // Get the latest completed self analysis
+        const latestCompleted = selfAnalyses
+          .filter((a: AnalysisResult) => a.status === 'completed')
+          .sort((a: AnalysisResult, b: AnalysisResult) => 
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          )[0];
+        setLatestSelfAnalysis(latestCompleted || null);
       }
     } catch (error) {
       console.error('Error loading analyses:', error);
@@ -334,6 +349,26 @@ export default function MyAnalysesScreen({ navigation }: any) {
           <Text style={styles.refreshIcon}>🔄</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Edit Answers Button for Self Analysis */}
+      {hasSelfAnalysis && latestSelfAnalysis && (
+        <View style={styles.editButtonContainer}>
+          <TouchableOpacity
+            style={styles.editAnswersButton}
+            onPress={() => {
+              // Navigate to S0 form with edit mode and existing data
+              navigation.navigate('S0Form', {
+                editMode: true,
+                existingS0Data: latestSelfAnalysis.s0_data,
+                existingS1Data: latestSelfAnalysis.s1_data,
+                analysisId: latestSelfAnalysis.id
+              });
+            }}
+          >
+            <Text style={styles.editAnswersButtonText}>✏️ Cevapları Düzenle</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <ScrollView
         style={styles.scrollView}
@@ -663,6 +698,25 @@ const styles = StyleSheet.create({
   deleteSmallButtonText: {
     fontSize: 12,
     color: '#991B1B',
+    fontWeight: '600',
+  },
+  editButtonContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: '#F7FAFC',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  editAnswersButton: {
+    backgroundColor: '#48BB78',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  editAnswersButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '600',
   },
 });
