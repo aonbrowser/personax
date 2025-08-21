@@ -110,13 +110,18 @@ export async function runSelfAnalysis(payload:any, userLang:string, userId:strin
   const sys = loadPrompt('s1.md');
   
   // Use simple processor
+  console.log('[PIPELINE] Processing payload with keys:', Object.keys(payload));
   const processed = processPayloadSimple(payload);
+  console.log('[PIPELINE] Processed result keys:', Object.keys(processed));
   
   // Handle new form structure
   let finalS0Items, finalS1Items;
   if (processed.form1Items && processed.form2Items && processed.form3Items) {
     // New structure - Fetch item details from database and merge with responses
     console.log('[PIPELINE] Using new form structure');
+    console.log('[PIPELINE] Form1Items count:', processed.form1Items.length);
+    console.log('[PIPELINE] Form2Items count:', processed.form2Items.length);
+    console.log('[PIPELINE] Form3Items count:', processed.form3Items.length);
     
     // Get all form item IDs
     const form1Ids = processed.form1Items.map(item => item.id);
@@ -185,9 +190,21 @@ export async function runSelfAnalysis(payload:any, userLang:string, userId:strin
   const targetLang = userLang;
   
   // Prepare the data blocks for the prompt
-  // REMOVED s0Block - it was redundant since s0ItemsBlock already contains all responses
-  const s0ItemsBlock = `<S0_ITEMS>\n${JSON.stringify(finalS0Items, null, 2)}\n</S0_ITEMS>`;
-  const s1ItemsBlock = `<S1_ITEMS>\n${JSON.stringify(finalS1Items, null, 2)}\n</S1_ITEMS>`;
+  // Check if we're using new form structure or old S0/S1 structure
+  let dataBlocks = '';
+  
+  if (processed.form1Items && processed.form2Items && processed.form3Items) {
+    // New form structure - use FORM1_ITEMS, FORM2_ITEMS, FORM3_ITEMS
+    const form1ItemsBlock = `<FORM1_ITEMS>\n${JSON.stringify(finalS0Items, null, 2)}\n</FORM1_ITEMS>`;
+    const form2ItemsBlock = `<FORM2_ITEMS>\n${JSON.stringify(processed.form2Items, null, 2)}\n</FORM2_ITEMS>`;
+    const form3ItemsBlock = `<FORM3_ITEMS>\n${JSON.stringify(processed.form3Items, null, 2)}\n</FORM3_ITEMS>`;
+    dataBlocks = `${form1ItemsBlock}\n\n${form2ItemsBlock}\n\n${form3ItemsBlock}`;
+  } else {
+    // Old S0/S1 structure - keep backward compatibility
+    const s0ItemsBlock = `<S0_ITEMS>\n${JSON.stringify(finalS0Items, null, 2)}\n</S0_ITEMS>`;
+    const s1ItemsBlock = `<S1_ITEMS>\n${JSON.stringify(finalS1Items, null, 2)}\n</S1_ITEMS>`;
+    dataBlocks = `${s0ItemsBlock}\n\n${s1ItemsBlock}`;
+  }
   
   // Demographics already extracted by processor
   const locale = targetLang;
@@ -216,8 +233,8 @@ export async function runSelfAnalysis(payload:any, userLang:string, userId:strin
     }
   }, null, 2)}\n</REPORTER_META>`;
   
-  // Combine prompt with data (removed s0Block as it was redundant)
-  const fullInput = `${s0ItemsBlock}\n\n${s1ItemsBlock}\n\n${reporterMetaBlock}`;
+  // Combine prompt with data
+  const fullInput = `${dataBlocks}\n\n${reporterMetaBlock}`;
   
   const messages: Msg[] = [ 
     { role:'system', content: sys }, 
@@ -345,8 +362,21 @@ export async function runOtherAnalysis(payload:any, userLang:string, userId:stri
   // Check if this is a reanalysis
   const isReanalysis = await UsageTracker.isReanalysis(userId, 'other_analysis', targetId);
   
-  const sys = loadPrompt('other.md');
-  const messages: Msg[] = [ { role:'system', content: sys }, { role:'user', content: `INPUT JSON:\n${JSON.stringify(payload)}` } ];
+  // Extract relationship type from payload
+  const relationshipType = payload.relationshipType || payload.relationType || 'unknown';
+  
+  // Add relationship type to metadata
+  const enrichedPayload = {
+    ...payload,
+    REPORTER_META: {
+      ...payload.REPORTER_META,
+      relationship_type: relationshipType,
+      person_name: targetId
+    }
+  };
+  
+  const sys = loadPrompt('s2.md');
+  const messages: Msg[] = [ { role:'system', content: sys }, { role:'user', content: `INPUT JSON:\n${JSON.stringify(enrichedPayload)}` } ];
   const { content, ok, detected, tokenUsage } = await retryEnforceLanguage(messages, userLang, 2);
   
   // Track usage

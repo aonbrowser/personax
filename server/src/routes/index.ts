@@ -48,6 +48,37 @@ router.post('/analyze/self', async (req, res) => {
   // Check for new form structure
   if (req.body.form1 || req.body.form2 || req.body.form3) {
     console.log('NEW FORM STRUCTURE DETECTED!');
+    
+    // Validate form data is not empty
+    const form1Count = req.body.form1 ? Object.keys(req.body.form1).length : 0;
+    const form2Count = req.body.form2 ? Object.keys(req.body.form2).length : 0;
+    const form3Count = req.body.form3 ? Object.keys(req.body.form3).length : 0;
+    
+    console.log('=== FORM DATA VALIDATION ===');
+    console.log('Form1 responses:', form1Count);
+    console.log('Form2 responses:', form2Count);
+    console.log('Form3 responses:', form3Count);
+    
+    // Check if all forms are empty
+    if (form1Count === 0 && form2Count === 0 && form3Count === 0) {
+      console.error('ERROR: All forms are empty!');
+      return res.status(400).json({
+        error: 'empty_forms',
+        message: 'Tüm formlar boş. Lütfen en az bir formu doldurun.',
+        details: {
+          form1: form1Count,
+          form2: form2Count,
+          form3: form3Count
+        }
+      });
+    }
+    
+    // Check if Form1 (demographics) has minimum required fields
+    if (form1Count > 0 && form1Count < 3) {
+      console.warn('WARNING: Form1 has very few responses:', form1Count);
+      // Not blocking, just warning
+    }
+    
     if (req.body.form1) {
       console.log('Form1 keys received:', Object.keys(req.body.form1));
       console.log('Form1 sample values:', {
@@ -109,6 +140,13 @@ router.post('/analyze/self', async (req, res) => {
     const userResult = await pool.query('SELECT id FROM users WHERE email = $1', ['test@test.com']);
     userId = userResult.rows[0].id;
   }
+  
+  // Log the exact data being passed to pipeline
+  console.log('[ROUTE] Passing to runSelfAnalysis:');
+  console.log('- Body keys:', Object.keys(req.body));
+  if (req.body.form1) console.log('- Form1 sample:', Object.keys(req.body.form1).slice(0, 3));
+  if (req.body.form2) console.log('- Form2 sample:', Object.keys(req.body.form2).slice(0, 3));
+  if (req.body.form3) console.log('- Form3 sample:', Object.keys(req.body.form3).slice(0, 3));
   
   const r = await runSelfAnalysis(req.body, lang, userId, targetId);
   res.json(r);

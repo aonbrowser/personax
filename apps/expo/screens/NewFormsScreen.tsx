@@ -403,7 +403,7 @@ export default function NewFormsScreen({ navigation, route }: any) {
     }
   };
 
-  const renderQuestionText = (text: string, isMissingItem: boolean = false) => {
+  const renderQuestionText = (text: string, isMissingItem: boolean = false, questionNumber?: number) => {
     const textStyle = isMissingItem ? styles.missingItemText : styles.questionText;
     
     // Check if text contains EN ÇOK or EN AZ
@@ -426,7 +426,83 @@ export default function NewFormsScreen({ navigation, route }: any) {
         </Text>
       );
     }
+    
+    // Add question number if provided
+    if (questionNumber) {
+      return (
+        <Text style={textStyle}>
+          <Text style={styles.questionNumber}>{questionNumber}. </Text>
+          {text}
+        </Text>
+      );
+    }
+    
     return <Text style={textStyle}>{text}</Text>;
+  };
+
+  const renderDISCQuestion = (discNumber: string, options: string[]) => {
+    const mostKey = `F3_DISC_${discNumber}_MOST`;
+    const leastKey = `F3_DISC_${discNumber}_LEAST`;
+    const mostValue = answers[mostKey] || '';
+    const leastValue = answers[leastKey] || '';
+    
+    return (
+      <View style={styles.discContainer}>
+        <View style={styles.discColumn}>
+          <Text style={styles.discHeaderMost}>EN ÇOK</Text>
+          <View style={styles.discOptions}>
+            {options.map((option, index) => {
+              const isSelected = mostValue === String(index);
+              return (
+                <TouchableOpacity
+                  key={`most-${index}`}
+                  style={[styles.discButton, isSelected && styles.discButtonSelectedMost]}
+                  onPress={() => {
+                    // Clear if same option selected in LEAST
+                    if (leastValue === String(index)) {
+                      handleAnswer(leastKey, '');
+                    }
+                    handleAnswer(mostKey, String(index));
+                  }}
+                >
+                  <Text style={[styles.discButtonText, isSelected && styles.discButtonTextSelected]}>
+                    {option}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+        
+        <View style={styles.discDivider} />
+        
+        <View style={styles.discColumn}>
+          <Text style={styles.discHeaderLeast}>EN AZ</Text>
+          <View style={styles.discOptions}>
+            {options.map((option, index) => {
+              const isSelected = leastValue === String(index);
+              return (
+                <TouchableOpacity
+                  key={`least-${index}`}
+                  style={[styles.discButton, isSelected && styles.discButtonSelectedLeast]}
+                  onPress={() => {
+                    // Clear if same option selected in MOST
+                    if (mostValue === String(index)) {
+                      handleAnswer(mostKey, '');
+                    }
+                    handleAnswer(leastKey, String(index));
+                  }}
+                >
+                  <Text style={[styles.discButtonText, isSelected && styles.discButtonTextSelected]}>
+                    {option}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </View>
+    );
   };
 
   const renderInput = (item: FormItem) => {
@@ -555,6 +631,35 @@ export default function NewFormsScreen({ navigation, route }: any) {
                 );
               })}
             </View>
+          </View>
+        );
+
+      case 'MultipleChoice':
+        if (!item.options_tr) {
+          return (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>Seçenekler yükleniyor...</Text>
+            </View>
+          );
+        }
+        const multiChoiceOptions = item.options_tr.split('|').map(opt => opt.trim());
+        return (
+          <View style={styles.multipleChoiceContainer}>
+            {multiChoiceOptions.map((option, index) => {
+              const optionKey = String.fromCharCode(65 + index); // A, B, C, D, E
+              const isSelected = value === optionKey;
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[styles.multipleChoiceOption, isSelected && styles.multipleChoiceOptionSelected]}
+                  onPress={() => handleAnswer(item.id, optionKey)}
+                >
+                  <Text style={[styles.multipleChoiceText, isSelected && styles.multipleChoiceTextSelected]}>
+                    {option}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         );
 
@@ -943,21 +1048,75 @@ export default function NewFormsScreen({ navigation, route }: any) {
         style={[styles.container, styles.webContainer]}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          {sections.map(section => (
+          {sections.map(section => {
+            // Calculate starting question number for this section
+            let sectionStartNumber = 1;
+            const sectionsBeforeThis = sections.slice(0, sections.indexOf(section));
+            
+            sectionsBeforeThis.forEach(prevSection => {
+              const sectionItems = items.filter(item => item.section === prevSection);
+              // Count DISC pairs as single questions in Form3
+              if (currentForm === 3) {
+                const discPairs = sectionItems.filter(item => item.id.includes('F3_DISC_') && item.id.includes('_MOST')).length;
+                const regularItems = sectionItems.filter(item => !item.id.includes('F3_DISC_')).length;
+                sectionStartNumber += discPairs + regularItems;
+              } else {
+                sectionStartNumber += sectionItems.length;
+              }
+            });
+            
+            return (
             <View key={section}>
               <View style={styles.sectionDivider}>
                 <Text style={styles.sectionDividerText}>{section}</Text>
               </View>
               {items
                 .filter(item => item.section === section)
-                .map(item => (
+                .map((item, index) => {
+                  // Calculate question number within the form
+                  let questionNumber = sectionStartNumber;
+                  
+                  // Add count of items before this one in the same section
+                  const itemsBeforeInSection = items.filter(i => i.section === section).slice(0, index);
+                  
+                  if (currentForm === 3) {
+                    // For Form3, count DISC pairs as single questions
+                    const discPairsBefore = itemsBeforeInSection.filter(i => i.id.includes('F3_DISC_') && i.id.includes('_MOST')).length;
+                    const regularItemsBefore = itemsBeforeInSection.filter(i => !i.id.includes('F3_DISC_')).length;
+                    questionNumber += discPairsBefore + regularItemsBefore;
+                  } else {
+                    questionNumber += index;
+                  }
+                  
+                  // Check if this is a DISC question pair
+                  if (item.id.includes('F3_DISC_') && item.id.includes('_MOST')) {
+                    const discNumber = item.id.match(/F3_DISC_(\d+)_MOST/)?.[1];
+                    if (discNumber) {
+                      const options = item.options_tr?.split('|') || [];
+                      return (
+                        <View key={item.id} style={styles.itemContainer}>
+                          {renderQuestionText('Size en çok ve en az uyan kelimeleri seçin', false, questionNumber)}
+                          {renderDISCQuestion(discNumber, options)}
+                        </View>
+                      );
+                    }
+                  }
+                  
+                  // Skip LEAST questions as they're handled with MOST
+                  if (item.id.includes('F3_DISC_') && item.id.includes('_LEAST')) {
+                    return null;
+                  }
+                  
+                  return (
                   <View key={item.id} style={styles.itemContainer}>
-                    {renderQuestionText(item.text_tr)}
+                    {renderQuestionText(item.text_tr, false, questionNumber)}
                     {renderInput(item)}
                   </View>
-                ))}
+                );
+                })}
             </View>
-          ))}
+            );
+          })}
 
         </ScrollView>
       </KeyboardAvoidingView>
@@ -1119,7 +1278,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   itemContainer: {
-    marginBottom: 12,
+    marginBottom: 47,
     backgroundColor: '#FFFFFF',
     padding: 12,
     borderRadius: 3,
@@ -1452,6 +1611,38 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: 'rgb(45, 55, 72)',
   },
+  multipleChoiceContainer: {
+    gap: 12,
+  },
+  multipleChoiceOption: {
+    padding: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  multipleChoiceOptionSelected: {
+    backgroundColor: 'rgb(66, 153, 225)',
+    borderColor: 'rgb(66, 153, 225)',
+  },
+  multipleChoiceText: {
+    fontSize: 14,
+    color: 'rgb(0, 0, 0)',
+    lineHeight: 20,
+  },
+  multipleChoiceTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '500',
+  },
+  errorContainer: {
+    padding: 12,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 3,
+  },
+  errorText: {
+    color: '#DC2626',
+    fontSize: 14,
+  },
   bottomNavContainer: {
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
@@ -1579,6 +1770,69 @@ const styles = StyleSheet.create({
   completeMissingButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  // Question numbering
+  questionNumber: {
+    fontWeight: '700',
+    color: 'rgb(66, 153, 225)',
+    fontSize: 16,
+  },
+  // DISC styles
+  discContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 16,
+    gap: 16,
+  },
+  discColumn: {
+    flex: 1,
+  },
+  discHeaderMost: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#16A34A',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  discHeaderLeast: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#DC2626',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  discDivider: {
+    width: 1,
+    backgroundColor: '#E5E7EB',
+    alignSelf: 'stretch',
+    marginHorizontal: 8,
+  },
+  discOptions: {
+    gap: 8,
+  },
+  discButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 3,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+  },
+  discButtonSelectedMost: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#16A34A',
+  },
+  discButtonSelectedLeast: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#DC2626',
+  },
+  discButtonText: {
+    fontSize: 14,
+    color: 'rgb(45, 55, 72)',
+  },
+  discButtonTextSelected: {
     fontWeight: '600',
   },
   backToFormButton: {

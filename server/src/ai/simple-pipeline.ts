@@ -1,5 +1,10 @@
 // Ultra simple pipeline - just process what frontend sends
 export function processPayloadSimple(payload: any) {
+  // Check for new form structure first (form1/form2/form3)
+  if (payload.form1 || payload.form2 || payload.form3) {
+    return processNewFormStructure(payload);
+  }
+  
   // Handle both new format (s0Items/s1Items) and old format (s0/s1)
   const s0Items = payload.s0Items || [];
   const s1Items = payload.s1Items || [];
@@ -87,5 +92,173 @@ export function processPayloadSimple(payload: any) {
     demographics: { age, gender },
     s0Responses,
     s1Responses
+  };
+}
+
+function processNewFormStructure(payload: any) {
+  const form1 = payload.form1 || {};
+  const form2 = payload.form2 || {};
+  const form3 = payload.form3 || {};
+  
+  // Process Form3 DISC questions if they're combined
+  const processedForm3 = { ...form3 };
+  
+  // Convert form1 to item format
+  const form1Items = Object.entries(form1).map(([id, response]) => {
+    // For SingleChoice questions, store both index and label
+    let responseLabel = String(response || '');
+    
+    // Special handling for known SingleChoice fields
+    if (id === 'F1_GENDER' && typeof response === 'string') {
+      const genderOptions = ['Erkek', 'Kadın', 'Belirtmek İstemiyorum', 'Diğer'];
+      const index = parseInt(response);
+      if (!isNaN(index) && genderOptions[index]) {
+        responseLabel = genderOptions[index];
+      }
+    } else if (id === 'F1_RELATIONSHIP' && typeof response === 'string') {
+      const relationOptions = ['Bekâr', 'İlişkisi var', 'Evli', 'Boşanmış', 'Diğer'];
+      const index = parseInt(response);
+      if (!isNaN(index) && relationOptions[index]) {
+        responseLabel = relationOptions[index];
+      }
+    } else if (id === 'F1_EDUCATION' && typeof response === 'string') {
+      const eduOptions = ['İlköğretim', 'Lise', 'Üniversite', 'Yüksek Lisans', 'Doktora'];
+      const index = parseInt(response);
+      if (!isNaN(index) && eduOptions[index]) {
+        responseLabel = eduOptions[index];
+      }
+    } else if (id === 'F1_PHYSICAL_ACTIVITY' && typeof response === 'string') {
+      const activityOptions = ['Hareketsiz', 'Düşük (Haftada 1-2 gün hafif egzersiz)', 'Orta (Haftada 3-4 gün)', 'Yüksek (Haftada 5+ gün)'];
+      const index = parseInt(response);
+      if (!isNaN(index) && activityOptions[index]) {
+        responseLabel = activityOptions[index];
+      }
+    } else if (id === 'F1_FOCUS_AREAS' && Array.isArray(response)) {
+      const focusOptions = ['Kariyer/İş', 'Aile', 'Romantik İlişki', 'Arkadaşlar/Sosyal Hayat', 'Kişisel Gelişim', 'Fiziksel Sağlık', 'Ruhsal Sağlık', 'Finansal Durum', 'Hobiler'];
+      const selectedLabels = response.map(idx => {
+        const index = parseInt(idx);
+        return focusOptions[index] || idx;
+      });
+      responseLabel = selectedLabels.join(', ');
+    }
+    
+    return {
+      id,
+      response_value: response,
+      response_label: responseLabel
+    };
+  });
+  
+  // Convert form2 to item format
+  const form2Items = Object.entries(form2).map(([id, response]) => {
+    let responseLabel = String(response || '');
+    
+    // Handle MBTI SingleChoice questions
+    if (id.startsWith('F2_MBTI_') && typeof response === 'string') {
+      const index = parseInt(response);
+      if (index === 0) {
+        responseLabel = 'A';
+      } else if (index === 1) {
+        responseLabel = 'B';
+      }
+    } else if (id === 'F2_VALUES' && Array.isArray(response)) {
+      // Convert English value names to Turkish
+      const valueMap = {
+        'achievement': 'Başarı',
+        'power': 'Güç',
+        'stimulation': 'Heyecan',
+        'self_direction': 'Özyönelim',
+        'benevolence': 'İyilikseverlik',
+        'universalism': 'Evrenselcilik',
+        'security': 'Güvenlik',
+        'tradition': 'Gelenek',
+        'conformity': 'Uyum',
+        'hedonism': 'Hazcılık'
+      };
+      const turkishValues = response.map(val => valueMap[val] || val);
+      responseLabel = turkishValues.join(', ');
+    }
+    
+    return {
+      id,
+      response_value: response,
+      response_label: responseLabel
+    };
+  });
+  
+  // Convert form3 to item format, handling DISC combined questions
+  const form3Items = Object.entries(processedForm3).map(([id, response]) => {
+    // Check if this is a combined DISC question
+    if (id.startsWith('F3_DISC_') && typeof response === 'object' && response !== null && 'most' in response) {
+      // Get DISC options for this question
+      const discOptions = {
+        'F3_DISC_01': ['Maceracı', 'Cana yakın', 'Uyumlu', 'Kültürlü'],
+        'F3_DISC_02': ['Cesur', 'Neşeli', 'Güvenilir', 'Detaycı'],
+        'F3_DISC_03': ['Sonuç odaklı', 'İkna edici', 'Barışçıl', 'Mükemmeliyetçi'],
+        'F3_DISC_04': ['Baskın', 'İlham verici', 'Destekleyici', 'Dikkatli'],
+        'F3_DISC_05': ['Kararlı', 'Coşkulu', 'Sakin', 'Analitik'],
+        'F3_DISC_06': ['Doğrudan', 'Dışadönük', 'Sabırlı', 'Titiz'],
+        'F3_DISC_07': ['Rekabetçi', 'Sosyal', 'Tutarlı', 'Sistematik'],
+        'F3_DISC_08': ['Risk alan', 'İyimser', 'İşbirlikçi', 'Temkinli'],
+        'F3_DISC_09': ['Bağımsız', 'Etkileşimci', 'Sadık', 'Kurallara bağlı'],
+        'F3_DISC_10': ['Hızlı karar veren', 'İkna edici', 'Uzlaşmacı', 'Planlı']
+      };
+      
+      const options = discOptions[id] || [];
+      const mostIndex = parseInt(response.most);
+      const leastIndex = parseInt(response.least);
+      const mostLabel = options[mostIndex] || response.most;
+      const leastLabel = options[leastIndex] || response.least;
+      
+      // Format combined DISC response
+      return {
+        id,
+        response_value: response,
+        response_label: `En çok: ${mostLabel}, En az: ${leastLabel}`,
+        disc_most: response.most,
+        disc_least: response.least
+      };
+    }
+    
+    return {
+      id,
+      response_value: response,
+      response_label: String(response || '')
+    };
+  });
+  
+  // Extract demographics from form1
+  const age = form1.F1_AGE || 'unknown';
+  let gender = form1.F1_GENDER || 'unknown';
+  
+  // Convert gender index to label
+  if (typeof gender === 'string' || typeof gender === 'number') {
+    const genderOptions = ['Erkek', 'Kadın', 'Belirtmek İstemiyorum', 'Diğer'];
+    const index = parseInt(String(gender));
+    if (!isNaN(index) && genderOptions[index]) {
+      gender = genderOptions[index];
+    }
+  }
+  
+  console.log('[SIMPLE] New form structure processed:');
+  console.log('- Form1 items:', form1Items.length);
+  console.log('- Form2 items:', form2Items.length);
+  console.log('- Form3 items:', form3Items.length);
+  console.log('- Demographics:', { age, gender });
+  
+  // Check for DISC combined questions
+  const discQuestions = form3Items.filter(item => item.id.startsWith('F3_DISC_') && item.disc_most !== undefined);
+  if (discQuestions.length > 0) {
+    console.log('- DISC combined questions:', discQuestions.length);
+    discQuestions.slice(0, 2).forEach(q => {
+      console.log(`  ${q.id}: most=${q.disc_most}, least=${q.disc_least}`);
+    });
+  }
+  
+  return {
+    form1Items,
+    form2Items, 
+    form3Items,
+    demographics: { age, gender }
   };
 }

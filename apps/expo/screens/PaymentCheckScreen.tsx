@@ -31,6 +31,7 @@ interface PaymentCheckScreenProps {
 export default function PaymentCheckScreen({ navigation, route }: PaymentCheckScreenProps) {
   const { serviceType, formData, form1Data, form2Data, form3Data, onComplete } = route.params;
   const [loading, setLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [hasCredit, setHasCredit] = useState(false);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [pricingOptions, setPricingOptions] = useState<any>(null);
@@ -96,21 +97,14 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
     console.log('Route params in useEffect:', route.params);
     console.log('StoredFormData in useEffect:', storedFormData ? Object.keys(storedFormData) : 'null');
     
-    // Small delay to ensure data is properly stored
-    setTimeout(() => {
-      console.log('Navigating to MyAnalyses after delay');
-      navigation.navigate('MyAnalyses');
-    }, 100);
+    // DO NOT navigate automatically - let checkUserLimits handle navigation
+    // Check user limits and start analysis
+    checkUserLimits();
     
-    // Then do everything else in background
-    setTimeout(() => {
-      checkUserLimits();
-      
-      // Initialize In-App Purchases for mobile platforms
-      if (Platform.OS !== 'web') {
-        initializeIAP();
-      }
-    }, 200);
+    // Initialize In-App Purchases for mobile platforms
+    if (Platform.OS !== 'web') {
+      initializeIAP();
+    }
     
     return () => {
       // Cleanup IAP on unmount
@@ -205,6 +199,92 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
       Alert.alert('Hata', 'Form verileri bulunamadı. Lütfen formu tekrar doldurun.');
       return;
     }
+    
+    // Validate data before proceeding - Check for new form structure
+    if (analysisData.form1 || analysisData.form2 || analysisData.form3) {
+      // New form structure - validate form data
+      const form1Count = analysisData.form1 ? Object.keys(analysisData.form1).length : 0;
+      const form2Count = analysisData.form2 ? Object.keys(analysisData.form2).length : 0;
+      const form3Count = analysisData.form3 ? Object.keys(analysisData.form3).length : 0;
+      
+      console.log('=== FORM DATA VALIDATION ===');
+      console.log(`Form1 (Tanışalım): ${form1Count} cevap / 13 soru`);
+      console.log(`Form2 (Kişilik): ${form2Count} cevap / 31 soru`);
+      console.log(`Form3 (Davranış): ${form3Count} cevap / 40 soru`);
+      console.log(`Toplam: ${form1Count + form2Count + form3Count} cevap / 84 soru`);
+      
+      if (form1Count === 0 && form2Count === 0 && form3Count === 0) {
+        console.error('ERROR: All forms are empty!');
+        Alert.alert('Hata', 'Form verileri boş. Lütfen en az bir formu doldurun.');
+        return;
+      }
+      
+      // At least one form should have data
+      if (form1Count < 5) {
+        console.warn('WARNING: Form1 has less than 5 responses:', form1Count);
+        Alert.alert('Uyarı', 'Form 1 (Tanışalım) formunda eksik bilgiler var. Devam etmek istiyor musunuz?', [
+          { text: 'Hayır', style: 'cancel' },
+          { text: 'Evet', onPress: () => continueWithAnalysis(analysisData, subscriptionId) }
+        ]);
+        return;
+      }
+    } else {
+      // Old S0/S1 structure - validate
+      const s0Count = analysisData.s0 ? Object.keys(analysisData.s0).length : 0;
+      const s1Count = analysisData.s1 ? Object.keys(analysisData.s1).length : 0;
+      
+      console.log('=== S0/S1 DATA VALIDATION ===');
+      console.log('S0 responses:', s0Count);
+      console.log('S1 responses:', s1Count);
+      
+      if (s0Count === 0 && s1Count === 0) {
+        console.error('ERROR: Both S0 and S1 are empty!');
+        Alert.alert('Hata', 'Form verileri boş. Lütfen formları doldurun.');
+        return;
+      }
+    }
+    
+    // Continue with analysis
+    continueWithAnalysis(analysisData, subscriptionId);
+  };
+  
+  const continueWithAnalysis = (analysisData: any, subscriptionId?: string) => {
+    // Process Form3 DISC questions - combine MOST and LEAST into single answers
+    if (analysisData.form3) {
+      const processedForm3 = { ...analysisData.form3 };
+      const discQuestions = [];
+      
+      // Find and combine DISC questions (F3_DISC_01 to F3_DISC_10)
+      for (let i = 1; i <= 10; i++) {
+        const discNum = i.toString().padStart(2, '0');
+        const mostKey = `F3_DISC_${discNum}_MOST`;
+        const leastKey = `F3_DISC_${discNum}_LEAST`;
+        
+        if (processedForm3[mostKey] || processedForm3[leastKey]) {
+          // Combine into single answer object
+          const combinedKey = `F3_DISC_${discNum}`;
+          processedForm3[combinedKey] = {
+            most: processedForm3[mostKey] || null,
+            least: processedForm3[leastKey] || null
+          };
+          
+          // Remove individual MOST/LEAST entries
+          delete processedForm3[mostKey];
+          delete processedForm3[leastKey];
+          
+          console.log(`Combined DISC ${i}: most=${processedForm3[combinedKey].most}, least=${processedForm3[combinedKey].least}`);
+        }
+      }
+      
+      // Update analysisData with processed Form3
+      analysisData = {
+        ...analysisData,
+        form3: processedForm3
+      };
+      
+      console.log('Form3 after DISC processing:', Object.keys(processedForm3).length, 'items');
+    }
+    
     // Navigate IMMEDIATELY
     console.log('NAVIGATING TO MyAnalyses NOW!');
     navigation.navigate('MyAnalyses');
@@ -233,18 +313,60 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
       // LOG: Print the actual data being sent
       console.log('=== SENDING TO API ===');
       console.log('Endpoint:', `${API_URL}/v1${analysisEndpoint}`);
-      console.log('FormData being sent:', JSON.stringify(analysisData, null, 2));
-      console.log('S0 data keys:', analysisData.s0 ? Object.keys(analysisData.s0) : 'No S0 data');
-      console.log('S1 data keys:', analysisData.s1 ? Object.keys(analysisData.s1) : 'No S1 data');
-      if (analysisData.s0) {
-        console.log('Sample S0 values:', {
-          age: analysisData.s0.S0_AGE,
-          gender: analysisData.s0.S0_GENDER,
-          lifeGoal: analysisData.s0.S0_LIFE_GOAL,
-          happyMemory: analysisData.s0.S0_HAPPY_MEMORY
-        });
+      
+      // Check which format we're using
+      if (analysisData.form1 || analysisData.form2 || analysisData.form3) {
+        // New form structure
+        console.log('Using NEW FORM STRUCTURE');
+        console.log('Form1 keys:', analysisData.form1 ? Object.keys(analysisData.form1).length : 0);
+        console.log('Form2 keys:', analysisData.form2 ? Object.keys(analysisData.form2).length : 0);
+        console.log('Form3 keys:', analysisData.form3 ? Object.keys(analysisData.form3).length : 0);
+        
+        if (analysisData.form1) {
+          console.log('Form1 sample values:', {
+            age: analysisData.form1.F1_AGE,
+            gender: analysisData.form1.F1_GENDER,
+            relationship: analysisData.form1.F1_RELATIONSHIP
+          });
+        }
+        
+        // Log first 3 keys of each form to verify data
+        if (analysisData.form1) {
+          console.log('Form1 first 3 keys:', Object.keys(analysisData.form1).slice(0, 3));
+        }
+        if (analysisData.form2) {
+          console.log('Form2 first 3 keys:', Object.keys(analysisData.form2).slice(0, 3));
+        }
+        if (analysisData.form3) {
+          console.log('Form3 first 3 keys:', Object.keys(analysisData.form3).slice(0, 3));
+          // Check for combined DISC questions
+          const discKeys = Object.keys(analysisData.form3).filter(k => k.startsWith('F3_DISC_') && !k.includes('MOST') && !k.includes('LEAST'));
+          if (discKeys.length > 0) {
+            console.log('Combined DISC questions found:', discKeys.length);
+            console.log('Sample DISC:', analysisData.form3[discKeys[0]]);
+          }
+        }
+      } else {
+        // Old S0/S1 structure
+        console.log('Using OLD S0/S1 STRUCTURE');
+        console.log('S0 data keys:', analysisData.s0 ? Object.keys(analysisData.s0) : 'No S0 data');
+        console.log('S1 data keys:', analysisData.s1 ? Object.keys(analysisData.s1) : 'No S1 data');
+        if (analysisData.s0) {
+          console.log('Sample S0 values:', {
+            age: analysisData.s0.S0_AGE,
+            gender: analysisData.s0.S0_GENDER,
+            lifeGoal: analysisData.s0.S0_LIFE_GOAL,
+            happyMemory: analysisData.s0.S0_HAPPY_MEMORY
+          });
+        }
       }
+      
+      console.log('Full data being sent (first 500 chars):', JSON.stringify(analysisData).substring(0, 500));
       console.log('======================');
+      
+      // Set processing state before sending analysis
+      setIsProcessing(true);
+      setLoading(true);
       
       fetch(`${API_URL}/v1${analysisEndpoint}`, {
         method: 'POST',
@@ -409,7 +531,12 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="rgb(66, 153, 225)" />
-          <Text style={styles.loadingText}>Kontrol ediliyor...</Text>
+          <Text style={styles.loadingText}>
+            {isProcessing 
+              ? "Verdiğiniz bilgiler doğrultusunda özel eğitilmiş yapay zekamız, ileri psikometrik teknikler kullanarak kişisel analizinizi hazırlıyor..."
+              : "Kontrol ediliyor..."
+            }
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -550,9 +677,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 20,
     fontSize: 16,
     color: '#666',
+    textAlign: 'center',
+    paddingHorizontal: 30,
+    lineHeight: 24,
   },
   header: {
     flexDirection: 'row',

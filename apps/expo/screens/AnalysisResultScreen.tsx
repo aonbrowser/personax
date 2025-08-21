@@ -13,18 +13,21 @@ interface AnalysisResultScreenProps {
   navigation: any;
   route: {
     params: {
-      result: {
+      result?: {
         markdown?: string;
         analysisId: string;
       };
+      markdown?: string;
+      analysisType?: string;
     };
   };
 }
 
 export default function AnalysisResultScreen({ navigation, route }: AnalysisResultScreenProps) {
-  const { result } = route.params;
+  // Support both old format (result.markdown) and new format (direct markdown)
+  const markdown = route.params?.result?.markdown || route.params?.markdown;
 
-  if (!result?.markdown) {
+  if (!markdown) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
@@ -54,7 +57,7 @@ export default function AnalysisResultScreen({ navigation, route }: AnalysisResu
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
         <View style={styles.markdownContainer}>
           <Markdown style={markdownStyles}>
-            {result.markdown}
+            {markdown}
           </Markdown>
         </View>
       </ScrollView>

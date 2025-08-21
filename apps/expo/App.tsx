@@ -346,7 +346,34 @@ export default function App() {
   };
 
   const LikertRow = ({ item, onChange, value, isHighlighted }: any) => {
-    const labels = ['-2', '-1', '0', '+1', '+2'];
+    // Check if this is a Likert6 with "Bilmiyorum" option
+    const isLikert6 = item.type === 'Likert6' || (item.options_tr && item.options_tr.includes('?: Bilmiyorum'));
+    
+    // Parse options if they exist (for Likert6 with custom labels)
+    let labels: string[] = [];
+    let values: any[] = [];
+    
+    if (item.options_tr) {
+      const opts = item.options_tr.split('|');
+      opts.forEach((opt: string, idx: number) => {
+        if (opt.startsWith('?:')) {
+          labels.push(opt.substring(3).trim());
+          values.push('?');
+        } else {
+          labels.push(opt);
+          values.push(idx + 1);
+        }
+      });
+    } else {
+      // Default Likert5 labels
+      labels = ['-2', '-1', '0', '+1', '+2'];
+      values = [1, 2, 3, 4, 5];
+      
+      if (isLikert6) {
+        labels.push('Bilmiyorum');
+        values.push('?');
+      }
+    }
     
     return (
       <View style={[
@@ -363,16 +390,16 @@ export default function App() {
           {labels.map((label: string, idx: number) => (
             <TouchableOpacity 
               key={idx} 
-              onPress={() => onChange(idx + 1)} 
+              onPress={() => onChange(values[idx])} 
               style={[
                 styles.likertOption,
-                value === idx + 1 && styles.likertOptionSelected,
+                value === values[idx] && styles.likertOptionSelected,
                 isHighlighted && !value && styles.likertOptionHighlighted
               ]}
             >
               <Text style={[
                 styles.likertOptionText,
-                value === idx + 1 && styles.likertOptionTextSelected
+                value === values[idx] && styles.likertOptionTextSelected
               ]}>{label}</Text>
             </TouchableOpacity>
           ))}
@@ -389,21 +416,28 @@ export default function App() {
           {(item.text_tr || '').replace('[AD]', 'Kişi')}
         </Text>
         <View style={styles.multiOptions}>
-          {opts.map((opt: string, idx: number) => (
-            <TouchableOpacity 
-              key={idx} 
-              onPress={() => onChange(String.fromCharCode(65 + idx))} 
-              style={[
-                styles.multiOption,
-                value === String.fromCharCode(65 + idx) && styles.multiOptionSelected
-              ]}
-            >
-              <Text style={[
-                styles.multiOptionText,
-                value === String.fromCharCode(65 + idx) && styles.multiOptionTextSelected
-              ]}>{opt}</Text>
-            </TouchableOpacity>
-          ))}
+          {opts.map((opt: string, idx: number) => {
+            // Check if this is the "?: Bilmiyorum" option
+            const isDontKnow = opt.startsWith('?:');
+            const optionValue = isDontKnow ? '?' : String.fromCharCode(65 + idx);
+            const displayText = isDontKnow ? opt.substring(3).trim() : opt;
+            
+            return (
+              <TouchableOpacity 
+                key={idx} 
+                onPress={() => onChange(optionValue)} 
+                style={[
+                  styles.multiOption,
+                  value === optionValue && styles.multiOptionSelected
+                ]}
+              >
+                <Text style={[
+                  styles.multiOptionText,
+                  value === optionValue && styles.multiOptionTextSelected
+                ]}>{displayText}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
     );
@@ -477,11 +511,32 @@ export default function App() {
     useEffect(() => {
       if (relation?.key && personName) {
         setIsLoading(true);
-        setAnswers({}); // Reset answers when relation changes
+        
+        // Try to load saved answers
+        const storageKey = `s2r_${relation.key}_${personName}`;
+        const savedAnswers = localStorage.getItem(storageKey);
+        
         fetch(`http://localhost:8080/v1/items/by-form?form=S2R_${relation.key}`)
           .then(r => r.json())
           .then(data => {
-            setItems(data.items || []);
+            const loadedItems = data.items || [];
+            setItems(loadedItems);
+            
+            // Load saved answers or set defaults
+            if (savedAnswers) {
+              setAnswers(JSON.parse(savedAnswers));
+            } else {
+              // Set "Don't know" as default for all questions
+              const defaultAnswers: any = {};
+              loadedItems.forEach((item: any) => {
+                // For questions with "?" option, set it as default
+                if (item.options_tr && item.options_tr.includes('?: Bilmiyorum')) {
+                  defaultAnswers[item.id] = '?';
+                }
+              });
+              setAnswers(defaultAnswers);
+            }
+            
             setIsLoading(false);
           })
           .catch(err => {
@@ -494,6 +549,36 @@ export default function App() {
     
     const handleRelationSelect = (rel: any) => {
       setRelation(rel);
+      
+      // Set default name based on relationship type
+      const defaultNames: { [key: string]: string } = {
+        'mother': 'Annem',
+        'father': 'Babam',
+        'sibling': 'Kardeşim',
+        'relative': 'Akrabam',
+        'best_friend': 'En yakın arkadaşım',
+        'friend': 'Arkadaşım',
+        'roommate': 'Ev arkadaşım',
+        'neighbor': 'Komşum',
+        'crush': 'Hoşlandığım kişi',
+        'date': 'Flörtüm',
+        'partner': 'Sevgilim',
+        'fiance': 'Nişanlım',
+        'spouse': 'Eşim',
+        'coworker': 'İş arkadaşım',
+        'manager': 'Yöneticim',
+        'direct_report': 'Ekip üyem',
+        'client': 'Müşterim',
+        'vendor': 'Tedarikçim',
+        'mentor': 'Mentorum',
+        'mentee': 'Mentim'
+      };
+      
+      // Set default name if available
+      if (defaultNames[rel.key]) {
+        setPersonName(defaultNames[rel.key]);
+      }
+      
       setShowNameInput(true);
     };
     
@@ -506,11 +591,21 @@ export default function App() {
     };
     
     const setAnswer = (id: string, val: any) => {
-      setAnswers((prev: any) => ({ ...prev, [id]: val }));
+      setAnswers((prev: any) => {
+        const newAnswers = { ...prev, [id]: val };
+        
+        // Auto-save to localStorage
+        if (relation?.key && personName) {
+          const storageKey = `s2r_${relation.key}_${personName}`;
+          localStorage.setItem(storageKey, JSON.stringify(newAnswers));
+        }
+        
+        return newAnswers;
+      });
     };
     
     const getProgress = () => {
-      const answered = Object.keys(answers).length;
+      const answered = Object.keys(answers).filter(key => answers[key] !== '?').length; // Don't count "Don't know" as answered
       const total = items.length;
       return { answered, total, percentage: total > 0 ? Math.round((answered / total) * 100) : 0 };
     };
@@ -569,31 +664,68 @@ export default function App() {
       }
     };
     
-    const submitForm = () => {
+    const submitForm = async () => {
       const progress = getProgress();
-      // TODO: API'ye gönder
-      // fetch('/v1/analyze/other', { method: 'POST', body: JSON.stringify({ 
-      //   answers, 
-      //   relation: relation.key,
-      //   personName 
-      // }) })
       
-      Alert.alert(
-        'Analiz Tamamlandı', 
-        `${personName} için ${relation.label} analiziniz tamamlandı.\n\n${progress.answered} yanıt başarıyla kaydedildi.`,
-        [
-          {
-            text: 'Tamam',
-            onPress: () => {
-              setCurrentScreen('home');
-              setRelation(null);
-              setPersonName('');
-              setItems([]);
-              setAnswers({});
+      try {
+        setIsLoading(true);
+        
+        // Prepare S2 data
+        const s2Data = {
+          S2_ITEMS: items.map(item => ({
+            ...item,
+            response_value: answers[item.id] || null,
+            response_label: answers[item.id] || null
+          })),
+          REPORTER_META: {
+            relationship_type: relation.key,
+            person_name: personName,
+            locale: 'tr',
+            demographics: {
+              relationship: relation.label
             }
           }
-        ]
-      );
+        };
+        
+        // Send to API
+        const response = await fetch('http://localhost:8080/v1/analyze/other', { 
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-lang': 'tr',
+            'x-user-id': 'test-user'
+          },
+          body: JSON.stringify({
+            ...s2Data,
+            relationshipType: relation.key,
+            targetId: personName
+          })
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          
+          // Navigate to analysis result
+          navigation.navigate('AnalysisResult', {
+            markdown: result.markdown,
+            analysisType: 'other'
+          });
+          
+          // Reset form
+          setCurrentScreen('home');
+          setRelation(null);
+          setPersonName('');
+          setItems([]);
+          setAnswers({});
+        } else {
+          Alert.alert('Hata', 'Analiz gönderilemedi. Lütfen tekrar deneyin.');
+        }
+      } catch (error) {
+        console.error('Submit error:', error);
+        Alert.alert('Hata', 'Bir hata oluştu. Lütfen tekrar deneyin.');
+      } finally {
+        setIsLoading(false);
+      }
     };
     
     return (
@@ -668,7 +800,7 @@ export default function App() {
               <Text style={styles.nameInputLabel}>Bu kişinin adı nedir?</Text>
               <TextInput
                 style={styles.nameInput}
-                placeholder="Örn: Ahmet, Ayşe..."
+                placeholder="İsterseniz değiştirebilirsiniz..."
                 value={personName}
                 onChangeText={setPersonName}
                 autoFocus
