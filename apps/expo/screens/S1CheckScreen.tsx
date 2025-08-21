@@ -101,11 +101,36 @@ export default function S1CheckScreen({ navigation }: any) {
       // If all questions are answered, go to analysis
       if (unanswered.length === 0) {
         console.log('All questions answered, ready for analysis');
+        
+        // Gather all saved answers from all forms
+        let s0Answers = {};
+        let s0MbtiAnswers = {};
+        let s1Answers = savedAnswers;
+        
+        if (Platform.OS === 'web') {
+          const s0Saved = localStorage.getItem('S0_profile_answers');
+          const s0MbtiSaved = localStorage.getItem('S0_MBTI_answers');
+          s0Answers = s0Saved ? JSON.parse(s0Saved) : {};
+          s0MbtiAnswers = s0MbtiSaved ? JSON.parse(s0MbtiSaved) : {};
+        } else {
+          const s0Saved = await AsyncStorage.getItem('S0_profile_answers');
+          const s0MbtiSaved = await AsyncStorage.getItem('S0_MBTI_answers');
+          s0Answers = s0Saved ? JSON.parse(s0Saved) : {};
+          s0MbtiAnswers = s0MbtiSaved ? JSON.parse(s0MbtiSaved) : {};
+        }
+        
         Alert.alert(
           '✅ Tüm Sorular Tamamlandı',
-          'Kişilik analiziniz hazır. Sonuçları görmek ister misiniz?',
+          'MBTI Analiziniz hazır. Sonuçları görmek ister misiniz?',
           [
-            { text: 'Analizi Gör', onPress: () => navigation.navigate('S1Analysis') }
+            { 
+              text: 'Analizi Gör', 
+              onPress: () => navigation.navigate('paymentCheck', {
+                s0Data: s0Answers,
+                s0MbtiData: s0MbtiAnswers,
+                s1Data: s1Answers
+              })
+            }
           ]
         );
       } else if (justSavedAnswers) {

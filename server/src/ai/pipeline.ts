@@ -55,42 +55,55 @@ export async function runSelfAnalysis(payload:any, userLang:string, userId:strin
     
     // Create or update analysis record
     if (!currentAnalysisId) {
-      // Extract actual responses from s0Items and s1Items for storage
-      const s0DataForStorage = {};
-      const s1DataForStorage = {};
-      
-      // If s0Items provided, extract responses
-      if (payload.s0Items && payload.s0Items.length > 0) {
-        payload.s0Items.forEach(item => {
-          if (item.response !== undefined) {
-            s0DataForStorage[item.id] = item.response;
-          }
-        });
+      // Check if new form structure or old S0/S1 structure
+      if (payload.form1 || payload.form2 || payload.form3) {
+        // NEW FORM STRUCTURE - Store form data separately
+        console.log('[PIPELINE] Storing new form data in analysis_results');
+        const { rows } = await pool.query(
+          `INSERT INTO analysis_results (user_id, analysis_type, status, form1_data, form2_data, form3_data, created_at)
+           VALUES ($1, 'self', 'processing', $2, $3, $4, NOW())
+           RETURNING id`,
+          [userId, payload.form1 || {}, payload.form2 || {}, payload.form3 || {}]
+        );
+        currentAnalysisId = rows[0].id;
       } else {
-        // Fallback to old format
-        Object.assign(s0DataForStorage, payload.s0 || {});
+        // OLD S0/S1 STRUCTURE
+        const s0DataForStorage = {};
+        const s1DataForStorage = {};
+        
+        // If s0Items provided, extract responses
+        if (payload.s0Items && payload.s0Items.length > 0) {
+          payload.s0Items.forEach(item => {
+            if (item.response !== undefined) {
+              s0DataForStorage[item.id] = item.response;
+            }
+          });
+        } else {
+          // Fallback to old format
+          Object.assign(s0DataForStorage, payload.s0 || {});
+        }
+        
+        // If s1Items provided, extract responses
+        if (payload.s1Items && payload.s1Items.length > 0) {
+          payload.s1Items.forEach(item => {
+            if (item.response !== undefined) {
+              s1DataForStorage[item.id] = item.response;
+            }
+          });
+        } else {
+          // Fallback to old format
+          Object.assign(s1DataForStorage, payload.s1 || {});
+        }
+        
+        // Create new analysis record with extracted data
+        const { rows } = await pool.query(
+          `INSERT INTO analysis_results (user_id, analysis_type, status, s0_data, s1_data, created_at)
+           VALUES ($1, 'self', 'processing', $2, $3, NOW())
+           RETURNING id`,
+          [userId, s0DataForStorage, s1DataForStorage]
+        );
+        currentAnalysisId = rows[0].id;
       }
-      
-      // If s1Items provided, extract responses
-      if (payload.s1Items && payload.s1Items.length > 0) {
-        payload.s1Items.forEach(item => {
-          if (item.response !== undefined) {
-            s1DataForStorage[item.id] = item.response;
-          }
-        });
-      } else {
-        // Fallback to old format
-        Object.assign(s1DataForStorage, payload.s1 || {});
-      }
-      
-      // Create new analysis record with extracted data
-      const { rows } = await pool.query(
-        `INSERT INTO analysis_results (user_id, analysis_type, status, s0_data, s1_data, created_at)
-         VALUES ($1, 'self', 'processing', $2, $3, NOW())
-         RETURNING id`,
-        [userId, s0DataForStorage, s1DataForStorage]
-      );
-      currentAnalysisId = rows[0].id;
     }
   
   // Load the new unified S1 prompt
@@ -98,8 +111,74 @@ export async function runSelfAnalysis(payload:any, userLang:string, userId:strin
   
   // Use simple processor
   const processed = processPayloadSimple(payload);
-  const finalS0Items = processed.s0Items;
-  const finalS1Items = processed.s1Items;
+  
+  // Handle new form structure
+  let finalS0Items, finalS1Items;
+  if (processed.form1Items && processed.form2Items && processed.form3Items) {
+    // New structure - Fetch item details from database and merge with responses
+    console.log('[PIPELINE] Using new form structure');
+    
+    // Get all form item IDs
+    const form1Ids = processed.form1Items.map(item => item.id);
+    const form2Ids = processed.form2Items.map(item => item.id);
+    const form3Ids = processed.form3Items.map(item => item.id);
+    const allIds = [...form1Ids, ...form2Ids, ...form3Ids];
+    
+    // Fetch item details from database
+    const { rows: itemDetails } = await pool.query(
+      `SELECT id, text_tr, type, options_tr, subscale, reverse_scored, test_type, section 
+       FROM items 
+       WHERE id = ANY($1)`,
+      [allIds]
+    );
+    
+    // Create a map for quick lookup
+    const itemMap = new Map(itemDetails.map(item => [item.id, item]));
+    
+    // Merge form1 items with details
+    finalS0Items = processed.form1Items.map(respItem => {
+      const details = itemMap.get(respItem.id) || {};
+      return {
+        ...details,
+        ...respItem,
+        response_value: respItem.response_value,
+        response_label: String(respItem.response_value || '')
+      };
+    });
+    
+    // Merge form2 and form3 items with details
+    const form2WithDetails = processed.form2Items.map(respItem => {
+      const details = itemMap.get(respItem.id) || {};
+      return {
+        ...details,
+        ...respItem,
+        response_value: respItem.response_value,
+        response_label: String(respItem.response_value || '')
+      };
+    });
+    
+    const form3WithDetails = processed.form3Items.map(respItem => {
+      const details = itemMap.get(respItem.id) || {};
+      return {
+        ...details,
+        ...respItem,
+        response_value: respItem.response_value,
+        response_label: String(respItem.response_value || '')
+      };
+    });
+    
+    finalS1Items = [...form2WithDetails, ...form3WithDetails];
+    
+    console.log('[PIPELINE] Form items with details:');
+    console.log('- Form1 (S0) items:', finalS0Items.length);
+    console.log('- Form2+3 (S1) items:', finalS1Items.length);
+  } else {
+    // Old structure fallback
+    console.log('[PIPELINE] Using old S0/S1 structure');
+    finalS0Items = processed.s0Items;
+    finalS1Items = processed.s1Items;
+  }
+  
   const { age, gender } = processed.demographics;
   
   // Determine target language

@@ -356,13 +356,31 @@ export default function MyAnalysesScreen({ navigation }: any) {
           <TouchableOpacity
             style={styles.editAnswersButton}
             onPress={() => {
-              // Navigate to S0 form with edit mode and existing data
-              navigation.navigate('S0Form', {
-                editMode: true,
-                existingS0Data: latestSelfAnalysis.s0_data,
-                existingS1Data: latestSelfAnalysis.s1_data,
-                analysisId: latestSelfAnalysis.id
-              });
+              console.log('Edit button clicked');
+              console.log('Navigation object:', navigation);
+              console.log('Latest self analysis:', latestSelfAnalysis);
+              
+              // Check if this is new form data or old S0/S1 data
+              if (latestSelfAnalysis.form1_data || latestSelfAnalysis.form2_data || latestSelfAnalysis.form3_data) {
+                console.log('New form data detected, navigating to NewForms with edit mode');
+                // New form system - navigate to NewForms with edit mode
+                navigation.navigate('NewForms', {
+                  editMode: true,
+                  existingForm1Data: latestSelfAnalysis.form1_data,
+                  existingForm2Data: latestSelfAnalysis.form2_data,
+                  existingForm3Data: latestSelfAnalysis.form3_data,
+                  analysisId: latestSelfAnalysis.id
+                });
+              } else if (latestSelfAnalysis.s0_data || latestSelfAnalysis.s1_data) {
+                console.log('Old S0/S1 data detected, navigating to NewForms');
+                // Old S0/S1 system - migrate to new forms directly
+                // Since Alert doesn't work on web properly, navigate directly
+                navigation.navigate('NewForms');
+              } else {
+                console.log('No data found, starting fresh');
+                // No data found - start fresh
+                navigation.navigate('NewForms');
+              }
             }}
           >
             <Text style={styles.editAnswersButtonText}>✏️ Cevapları Düzenle</Text>

@@ -19,10 +19,7 @@ const analysisImage = require('./assets/images/analysis.png');
 const newPersonAnalysisImage = require('./assets/images/new-person-analysis.png');
 
 // Screens
-import S0ProfileScreen from './screens/S0ProfileScreen';
-import S0CheckScreen from './screens/S0CheckScreen';
-import S1FormScreen from './screens/S1FormScreen';
-import S1CheckScreen from './screens/S1CheckScreen';
+import NewFormsScreen from './screens/NewFormsScreen';
 import PaymentCheckScreen from './screens/PaymentCheckScreen';
 import MyAnalysesScreen from './screens/MyAnalysesScreen';
 import AnalysisResultScreen from './screens/AnalysisResultScreen';
@@ -52,6 +49,12 @@ export default function App() {
         const path = window.location.pathname;
         
         console.log('Checking route:', { hash, path }); // Debug log
+        
+        // Check for Google OAuth callback
+        if (hash.includes('access_token')) {
+          handleGoogleCallback(hash);
+          return;
+        }
         
         // Check both hash and pathname
         if (hash === '#stargate' || hash === '#/stargate' || path === '/stargate') {
@@ -98,6 +101,10 @@ export default function App() {
         case 's0check':
         case 'S0Check':
           document.title = 'Atladığınız Sorular - PersonaX';
+          break;
+        case 's0_mbti':
+        case 'S0_MBTI':
+          document.title = 'MBTI Analizi - PersonaX';
           break;
         case 's1form':
         case 'S1Form':
@@ -206,12 +213,73 @@ export default function App() {
     }
   };
 
-  const handleGoogleSignIn = () => {
-    const message = 'Google Sign In - Demo modunda kullanılamaz';
-    if (Platform.OS === 'web') {
-      alert(`Demo Mode\n\n${message}`);
-    } else {
-      Alert.alert('Demo Mode', message);
+  const handleGoogleCallback = async (hash: string) => {
+    try {
+      // Hash'ten access token'ı çıkar
+      const params = new URLSearchParams(hash.substring(1));
+      const accessToken = params.get('access_token');
+      
+      if (accessToken) {
+        // Google API'den kullanıcı bilgilerini al
+        const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+        
+        if (response.ok) {
+          const userData = await response.json();
+          console.log('Google user data:', userData);
+          
+          // Email'i kaydet ve login yap
+          if (userData.email) {
+            setEmail(userData.email);
+            localStorage.setItem('userEmail', userData.email);
+            localStorage.setItem('userName', userData.name || '');
+            localStorage.setItem('userPicture', userData.picture || '');
+            setIsAuthenticated(true);
+            setCurrentScreen('home');
+            
+            // URL'den token'ı temizle
+            window.history.replaceState({}, '', '/');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error processing Google callback:', error);
+    }
+  };
+  
+  const handleGoogleSignIn = async () => {
+    try {
+      // Web için Google OAuth
+      if (Platform.OS === 'web') {
+        // Google OAuth URL'i oluştur
+        const clientId = '1081510942447-mpjnej5fbs9vn262m4sccp3lcufmr9du.apps.googleusercontent.com';
+        const redirectUri = encodeURIComponent(window.location.origin);
+        const scope = encodeURIComponent('email profile');
+        const responseType = 'token';
+        
+        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+          `client_id=${clientId}&` +
+          `redirect_uri=${redirectUri}&` +
+          `response_type=${responseType}&` +
+          `scope=${scope}`;
+        
+        // Google login sayfasına yönlendir
+        window.location.href = authUrl;
+      } else {
+        // Mobile için farklı implementation gerekecek
+        Alert.alert('Bilgi', 'Google ile giriş yakında mobil için de aktif olacak!');
+      }
+    } catch (error) {
+      console.error('Google sign in error:', error);
+      const errorMessage = 'Google ile giriş yapılırken hata oluştu';
+      if (Platform.OS === 'web') {
+        alert(errorMessage);
+      } else {
+        Alert.alert('Hata', errorMessage);
+      }
     }
   };
 
@@ -220,8 +288,8 @@ export default function App() {
   };
   
   const handleSelfAnalysis = () => {
-    // Her zaman S0'dan başla, önceki cevaplar hatırlanacak
-    setCurrentScreen('s0profile');
+    // Yeni form ekranına yönlendir
+    setCurrentScreen('newforms');
   };
   
   const handleRelationshipAnalysis = () => {
@@ -1106,17 +1174,31 @@ export default function App() {
       return <ReportsScreen />;
     }
     
-    if (currentScreen === 's0profile') {
-      return <S0ProfileScreen navigation={{ 
-        navigate: (screen: string) => setCurrentScreen(screen),
+    if (currentScreen === 'newforms') {
+      return <NewFormsScreen navigation={{ 
+        navigate: (screen: string, params?: any) => {
+          if (screen === 'paymentCheck' && params) {
+            setPaymentParams(params);
+          }
+          setCurrentScreen(screen);
+        },
         goBack: () => setCurrentScreen('home')
       }} />;
     }
     
+    // Old screens commented out - replaced by NewFormsScreen
+    /*
     if (currentScreen === 's0check' || currentScreen === 'S0Check') {
       return <S0CheckScreen navigation={{ 
         navigate: (screen: string) => setCurrentScreen(screen),
         goBack: () => setCurrentScreen('s0profile')
+      }} />;
+    }
+    
+    if (currentScreen === 's0_mbti' || currentScreen === 'S0_MBTI') {
+      return <S0_MBTIScreen navigation={{ 
+        navigate: (screen: string) => setCurrentScreen(screen),
+        goBack: () => setCurrentScreen('S0Check')
       }} />;
     }
     
@@ -1138,6 +1220,7 @@ export default function App() {
         goBack: () => setCurrentScreen('S1Form')
       }} />;
     }
+    */
     
     if (currentScreen === 's2form') {
       return <S2FormScreen />;
@@ -1163,9 +1246,12 @@ export default function App() {
           goBack: () => setCurrentScreen('home')
         }}
         route={{
-          params: paymentParams || {
+          params: {
             serviceType: 'self_analysis',
-            formData: {},
+            form1Data: paymentParams?.form1Data,
+            form2Data: paymentParams?.form2Data,
+            form3Data: paymentParams?.form3Data,
+            formData: paymentParams?.formData || {},
             onComplete: (result: any) => {
               console.log('Analysis complete:', result);
               // Navigate to result screen or show result
@@ -1182,8 +1268,11 @@ export default function App() {
             if (screen === 'AnalysisResult') {
               setAnalysisResultParams(params);
               setCurrentScreen(screen);
+            } else if (screen === 'NewForms') {
+              // Navigate to new forms system
+              setCurrentScreen('NewForms');
             } else if (screen === 'S0Form' && params?.editMode) {
-              // Handle edit mode navigation
+              // Handle old edit mode navigation (for backward compatibility)
               setEditMode(true);
               setExistingS0Data(params.existingS0Data);
               setExistingS1Data(params.existingS1Data);
@@ -1207,6 +1296,27 @@ export default function App() {
           goBack: () => setCurrentScreen('MyAnalyses')
         }}
         route={{ params: analysisResultParams }}
+      />;
+    }
+    
+    if (currentScreen === 'NewForms') {
+      return <NewFormsScreen 
+        navigation={{ 
+          navigate: (screen: string, params?: any) => {
+            if (screen === 'PaymentCheck') {
+              // Store form data and navigate
+              console.log('Navigating to PaymentCheck with params:', params);
+              setPaymentParams(params);
+              setCurrentScreen(screen);
+            } else if (screen === 'MyAnalyses') {
+              setCurrentScreen(screen);
+            } else {
+              setCurrentScreen(screen);
+            }
+          },
+          goBack: () => setCurrentScreen('home')
+        }}
+        route={{ params: {} }}
       />;
     }
     

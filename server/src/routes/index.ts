@@ -44,17 +44,43 @@ router.post('/analyze/self', async (req, res) => {
   console.log('\n=== RECEIVED AT BACKEND ===');
   console.log('User Email:', userEmail);
   console.log('Request body keys:', Object.keys(req.body));
-  if (req.body.s0) {
-    console.log('S0 keys received:', Object.keys(req.body.s0));
-    console.log('S0 sample values:', {
-      age: req.body.s0.S0_AGE,
-      gender: req.body.s0.S0_GENDER,
-      lifeGoal: req.body.s0.S0_LIFE_GOAL?.substring(0, 50),
-      happyMemory: req.body.s0.S0_HAPPY_MEMORY?.substring(0, 50)
-    });
-  }
-  if (req.body.s1) {
-    console.log('S1 keys received:', Object.keys(req.body.s1).slice(0, 10), '...');
+  
+  // Check for new form structure
+  if (req.body.form1 || req.body.form2 || req.body.form3) {
+    console.log('NEW FORM STRUCTURE DETECTED!');
+    if (req.body.form1) {
+      console.log('Form1 keys received:', Object.keys(req.body.form1));
+      console.log('Form1 sample values:', {
+        age: req.body.form1.F1_AGE,
+        gender: req.body.form1.F1_GENDER,
+        relationship: req.body.form1.F1_RELATIONSHIP,
+        education: req.body.form1.F1_EDUCATION
+      });
+    }
+    if (req.body.form2) {
+      console.log('Form2 keys received:', Object.keys(req.body.form2).length, 'total');
+      console.log('Form2 sample keys:', Object.keys(req.body.form2).slice(0, 5));
+    }
+    if (req.body.form3) {
+      console.log('Form3 keys received:', Object.keys(req.body.form3).length, 'total');
+      console.log('Form3 sample keys:', Object.keys(req.body.form3).slice(0, 5));
+    }
+  } else if (req.body.s0 || req.body.s1) {
+    console.log('OLD S0/S1 STRUCTURE');
+    if (req.body.s0) {
+      console.log('S0 keys received:', Object.keys(req.body.s0));
+      console.log('S0 sample values:', {
+        age: req.body.s0.S0_AGE,
+        gender: req.body.s0.S0_GENDER,
+        lifeGoal: req.body.s0.S0_LIFE_GOAL?.substring(0, 50),
+        happyMemory: req.body.s0.S0_HAPPY_MEMORY?.substring(0, 50)
+      });
+    }
+    if (req.body.s1) {
+      console.log('S1 keys received:', Object.keys(req.body.s1).slice(0, 10), '...');
+    }
+  } else {
+    console.log('WARNING: No recognized form structure in request body!');
   }
   console.log('===========================\n');
   

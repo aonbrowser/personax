@@ -113,7 +113,7 @@ export default function S0CheckScreen({ navigation }: any) {
       // If all questions are answered, go to S1
       if (unanswered.length === 0) {
         console.log('All questions answered, navigating to S1Form');
-        navigation.navigate('S1Form');
+        navigation.navigate('S0_MBTI');
       } else if (justSavedAnswers) {
         // If we just saved some answers and there are still questions left
         setJustSavedAnswers(false);
@@ -227,7 +227,7 @@ export default function S0CheckScreen({ navigation }: any) {
       
       if (stillUnanswered.length === 0) {
         // Really all done - go to S1
-        navigation.navigate('S1Form');
+        navigation.navigate('S0_MBTI');
       } else {
         // Reload with remaining questions
         setItems(stillUnanswered);

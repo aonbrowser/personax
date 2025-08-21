@@ -19,20 +19,42 @@ interface PaymentCheckScreenProps {
   route: {
     params: {
       serviceType: 'self_analysis' | 'other_analysis' | 'relationship_analysis' | 'coaching';
-      formData: any;
+      formData?: any;
+      form1Data?: any;
+      form2Data?: any;
+      form3Data?: any;
       onComplete: (result: any) => void;
     };
   };
 }
 
 export default function PaymentCheckScreen({ navigation, route }: PaymentCheckScreenProps) {
-  const { serviceType, formData, onComplete } = route.params;
+  const { serviceType, formData, form1Data, form2Data, form3Data, onComplete } = route.params;
   const [loading, setLoading] = useState(true);
   const [hasCredit, setHasCredit] = useState(false);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [pricingOptions, setPricingOptions] = useState<any>(null);
   const [selectedOption, setSelectedOption] = useState<string>('');
   const [storedFormData] = useState(() => {
+    // Check if we have new form structure (form1Data, form2Data, form3Data)
+    if (form1Data || form2Data || form3Data) {
+      const combinedData = {
+        form1: form1Data || {},
+        form2: form2Data || {},
+        form3: form3Data || {}
+      };
+      console.log('=== NEW FORM DATA STRUCTURE ===');
+      console.log('Form1 count:', Object.keys(combinedData.form1).length);
+      console.log('Form2 count:', Object.keys(combinedData.form2).length);
+      console.log('Form3 count:', Object.keys(combinedData.form3).length);
+      
+      // Store in localStorage for persistence
+      if (Platform.OS === 'web') {
+        localStorage.setItem('pending_analysis_data', JSON.stringify(combinedData));
+      }
+      return combinedData;
+    }
+    
     // Try to get from localStorage first (for web)
     if (Platform.OS === 'web') {
       const savedData = localStorage.getItem('pending_analysis_data');
@@ -40,8 +62,7 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
         try {
           const parsed = JSON.parse(savedData);
           console.log('=== LOADED FROM LOCALSTORAGE ===');
-          console.log('S0 count:', parsed.s0 ? Object.keys(parsed.s0).length : 0);
-          console.log('S1 count:', parsed.s1 ? Object.keys(parsed.s1).length : 0);
+          console.log('Data structure:', Object.keys(parsed));
           // Clear after reading to avoid reuse
           localStorage.removeItem('pending_analysis_data');
           return parsed;
@@ -51,7 +72,7 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
       }
     }
     
-    // Fallback to route params (shouldn't happen now)
+    // Fallback to old formData structure
     console.log('WARNING: No data in localStorage, checking route params');
     return formData || {};
   });
