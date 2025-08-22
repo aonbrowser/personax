@@ -34,11 +34,18 @@ export default function MyAnalysesScreen({ navigation }: any) {
 
   useEffect(() => {
     loadUserEmail();
-    loadAnalyses();
   }, []);
 
   useEffect(() => {
-    loadAnalyses();
+    if (userEmail) {
+      console.log('Loading analyses for user:', userEmail);
+      loadAnalyses();
+      
+      // Also load after a short delay to catch newly created analyses
+      setTimeout(() => {
+        loadAnalyses();
+      }, 1000);
+    }
   }, [userEmail]);
   
   // Auto-refresh for processing analyses
@@ -294,6 +301,20 @@ export default function MyAnalysesScreen({ navigation }: any) {
               
               <Text style={styles.dateText}>{formatDate(analysis.created_at)}</Text>
               
+              {analysis.status === 'processing' && (
+                <View style={styles.processingContainer}>
+                  <View style={styles.processingHeader}>
+                    <ActivityIndicator size="small" color="#3B82F6" style={styles.processingSpinner} />
+                    <Text style={styles.processingTitle}>Analiziniz İşleniyor</Text>
+                  </View>
+                  <Text style={styles.processingText}>
+                    Gönderdiğiniz form özel eğitilmiş, yüksek seviye reasoning yapan yapay zeka tarafından detaylı inceleniyor. 
+                    Anlatılarınız ve verdiğiniz cevaplar arasındaki bağlantılar analiz ediliyor ve en önde gelen psikometrik tekniklerle değerlendiriliyor.
+                  </Text>
+                  <Text style={styles.processingTime}>Lütfen bekleyin (2-4 dk)</Text>
+                </View>
+              )}
+              
               {analysis.status === 'error' && (
                 <View style={styles.errorContainer}>
                   <Text style={styles.errorText}>
@@ -511,5 +532,38 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '500',
+  },
+  processingContainer: {
+    marginTop: 12,
+    padding: 16,
+    backgroundColor: '#EBF8FF',
+    borderRadius: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: '#3B82F6',
+  },
+  processingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  processingSpinner: {
+    marginRight: 8,
+  },
+  processingTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E40AF',
+  },
+  processingText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#1E3A8A',
+    marginBottom: 8,
+  },
+  processingTime: {
+    fontSize: 13,
+    color: '#3B82F6',
+    fontWeight: '500',
+    fontStyle: 'italic',
   },
 });

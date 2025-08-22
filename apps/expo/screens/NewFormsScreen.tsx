@@ -611,6 +611,43 @@ export default function NewFormsScreen({ navigation, route }: any) {
           </View>
         );
 
+      case 'MultiSelect4':
+        const multi4Options = item.options_tr?.split('|') || [];
+        const selected4Values = value ? (Array.isArray(value) ? value : [value]) : [];
+        
+        return (
+          <View style={styles.choiceContainer}>
+            {multi4Options.map((option, index) => {
+              const isSelected = selected4Values.includes(String(index));
+              
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[styles.choiceButton, isSelected && styles.choiceButtonSelected]}
+                  onPress={() => {
+                    let newValues = [...selected4Values];
+                    if (isSelected) {
+                      newValues = newValues.filter(v => v !== String(index));
+                    } else {
+                      if (newValues.length < 4) {
+                        newValues.push(String(index));
+                      } else {
+                        Alert.alert('Uyarı', 'En fazla 4 seçim yapabilirsiniz');
+                        return;
+                      }
+                    }
+                    handleAnswer(item.id, newValues);
+                  }}
+                >
+                  <Text style={[styles.choiceText, isSelected && styles.choiceTextSelected]}>
+                    {option}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        );
+
       case 'Likert5':
         return (
           <View style={styles.likertContainer}>
@@ -660,6 +697,28 @@ export default function NewFormsScreen({ navigation, route }: any) {
                 </TouchableOpacity>
               );
             })}
+          </View>
+        );
+
+      case 'Scale5':
+        return (
+          <View style={styles.likertContainer}>
+            <View style={styles.likertOptions}>
+              {[1, 2, 3, 4, 5].map((num) => {
+                const isSelected = value === num;
+                return (
+                  <TouchableOpacity
+                    key={num}
+                    style={[styles.likertOption, isSelected && styles.likertOptionSelected]}
+                    onPress={() => handleAnswer(item.id, num)}
+                  >
+                    <Text style={[styles.likertText, isSelected && styles.likertTextSelected]}>
+                      {num}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
         );
 
