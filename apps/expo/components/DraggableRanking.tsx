@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   valueButton: {
-    backgroundColor: 'rgb(66, 153, 225)',
+    backgroundColor: 'rgb(96, 187, 202)',
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 3,
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 3,
     borderWidth: 2,
-    borderColor: 'rgb(66, 153, 225)',
+    borderColor: 'rgb(96, 187, 202)',
   },
   slotLabel: {
     fontSize: 14,
@@ -318,14 +318,14 @@ const styles = StyleSheet.create({
   insertIndicator: {
     backgroundColor: 'rgba(66, 153, 225, 0.1)',
     borderWidth: 2,
-    borderColor: 'rgb(66, 153, 225)',
+    borderColor: 'rgb(96, 187, 202)',
     borderStyle: 'dashed',
     borderRadius: 3,
     padding: 8,
     marginBottom: 8,
   },
   insertIndicatorText: {
-    color: 'rgb(66, 153, 225)',
+    color: 'rgb(96, 187, 202)',
     fontSize: 13,
     fontWeight: '500',
     textAlign: 'center',

@@ -223,7 +223,7 @@ router.get('/user/analyses', async (req, res) => {
     
     // Then fetch all analyses
     const { rows } = await pool.query(
-      `SELECT id, analysis_type, status, result_markdown, error_message, 
+      `SELECT id, analysis_type, status, result_markdown, result_blocks, error_message, 
               created_at, completed_at, s0_data, s1_data
        FROM analysis_results 
        WHERE user_id = $1 

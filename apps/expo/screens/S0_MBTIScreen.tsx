@@ -318,8 +318,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   optionButtonSelected: {
-    backgroundColor: 'rgb(66, 153, 225)',
-    borderColor: 'rgb(66, 153, 225)',
+    backgroundColor: 'rgb(96, 187, 202)',
+    borderColor: 'rgb(96, 187, 202)',
   },
   optionText: {
     fontSize: 14,
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7EB',
   },
   nextButton: {
-    backgroundColor: 'rgb(66, 153, 225)',
+    backgroundColor: 'rgb(96, 187, 202)',
   },
   navButtonText: {
     fontSize: 16,

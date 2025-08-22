@@ -34,7 +34,7 @@
 }
 
 .ranking-value-button {
-  background-color: rgb(66, 153, 225);
+  background-color: rgb(96, 187, 202);
   padding: 10px 16px;
   border-radius: 3px;
   min-width: 100px;
@@ -113,7 +113,7 @@
   background-color: rgb(244, 244, 244);
   padding: 10px 16px;
   border-radius: 3px;
-  border: 2px solid rgb(66, 153, 225);
+  border: 2px solid rgb(96, 187, 202);
   cursor: grab;
   user-select: none;
   transition: all 0.2s;
@@ -188,7 +188,7 @@
   left: 32px;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, rgb(66, 153, 225) 0%, rgba(66, 153, 225, 0.3) 100%);
+  background: linear-gradient(90deg, rgb(96, 187, 202) 0%, rgba(66, 153, 225, 0.3) 100%);
   border-radius: 2px;
   z-index: 1;
 }
@@ -197,9 +197,9 @@
   margin-left: 32px;
   padding: 8px 14px;
   background: rgba(66, 153, 225, 0.1);
-  border: 2px dashed rgb(66, 153, 225);
+  border: 2px dashed rgb(96, 187, 202);
   border-radius: 3px;
-  color: rgb(66, 153, 225);
+  color: rgb(96, 187, 202);
   font-weight: 500;
   font-size: 13px;
   opacity: 0.8;
@@ -268,7 +268,7 @@
 
 /* Touch drag image */
 .touch-drag-image {
-  background-color: rgb(66, 153, 225);
+  background-color: rgb(96, 187, 202);
   color: white;
   padding: 8px 12px;
   border-radius: 3px;

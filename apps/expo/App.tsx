@@ -37,6 +37,12 @@ export default function App() {
   const [existingS0Data, setExistingS0Data] = useState<any>(null);
   const [existingS1Data, setExistingS1Data] = useState<any>(null);
   const [editAnalysisId, setEditAnalysisId] = useState<string | null>(null);
+  
+  // Home screen states
+  const [hasSelfAnalysis, setHasSelfAnalysis] = useState(false);
+  const [personAnalyses, setPersonAnalyses] = useState<string[]>([]);
+  const [relationAnalyses, setRelationAnalyses] = useState<string[]>([]);
+  const [chatMessage, setChatMessage] = useState('');
 
   // Check for existing session on mount and handle URL routing
   useEffect(() => {
@@ -90,47 +96,81 @@ export default function App() {
     if (Platform.OS === 'web') {
       switch(currentScreen) {
         case 'home':
-          document.title = 'PersonaX - İlişki Koçunuz';
+          document.title = 'Cogni Coach - Kişisel Gelişim Koçunuz';
           break;
         case 'login':
-          document.title = 'Giriş Yap - PersonaX';
+          document.title = 'Giriş Yap - Cogni Coach';
           break;
-        case 's0profile':
-          document.title = 'S0 Formu - Hadi Tanışalım';
+        case 'NewForms':
+        case 'newforms':
+          document.title = 'Kendi Analizim - Cogni Coach';
           break;
-        case 's0check':
-        case 'S0Check':
-          document.title = 'Atladığınız Sorular - PersonaX';
+        case 'MyAnalyses':
+          document.title = 'Tüm Analizlerim - Cogni Coach';
           break;
-        case 's0_mbti':
-        case 'S0_MBTI':
-          document.title = 'MBTI Analizi - PersonaX';
-          break;
-        case 's1form':
-        case 'S1Form':
-          document.title = 'S1 Formu - Kişilik Değerlendirmesi';
-          break;
-        case 's1check':
-        case 'S1Check':
-          document.title = 'S1 Eksik Sorular - PersonaX';
+        case 'AnalysisResult':
+          document.title = 'Analiz Raporu - Cogni Coach';
           break;
         case 's2form':
-          document.title = 'S2 Formu - Partner Değerlendirmesi';
+          document.title = 'Kişi Analizi - Cogni Coach';
           break;
         case 's3form':
-          document.title = 'S3 Formu - İlişki Dinamikleri';
+          document.title = 'Tip Doğrulama - Cogni Coach';
           break;
         case 's4form':
-          document.title = 'S4 Formu - Koçluk Seansı';
+          document.title = 'Değerler & Sınırlar - Cogni Coach';
+          break;
+        case 'people':
+          document.title = 'Kişi Analizleri - Cogni Coach';
+          break;
+        case 'reports':
+          document.title = 'İlişki Analizleri - Cogni Coach';
           break;
         case 'admin-pricing':
-          document.title = 'Admin Panel - PersonaX';
+          document.title = 'Admin Panel - Cogni Coach';
           break;
         default:
-          document.title = 'PersonaX';
+          document.title = 'Cogni Coach';
       }
     }
   }, [currentScreen]);
+  
+  // Check analyses for home screen
+  useEffect(() => {
+    if (currentScreen === 'home' && isAuthenticated) {
+      const checkAnalyses = async () => {
+        try {
+          const userEmail = Platform.OS === 'web' ? 
+            localStorage.getItem('userEmail') || 'test@test.com' : 
+            'test@test.com';
+          
+          const response = await fetch(`http://localhost:8080/v1/user/analyses`, {
+            headers: {
+              'x-user-email': userEmail,
+            },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            const selfAnalyses = (data.analyses || []).filter(
+              (a: any) => a.analysis_type === 'self'
+            );
+            setHasSelfAnalysis(selfAnalyses.length > 0);
+            
+            // Get unique person analyses (excluding self)
+            const persons = (data.analyses || [])
+              .filter((a: any) => a.analysis_type === 'other')
+              .map((a: any) => a.target_person)
+              .filter((p: string, i: number, arr: string[]) => arr.indexOf(p) === i);
+            setPersonAnalyses(persons);
+          }
+        } catch (error) {
+          console.error('Error checking analyses:', error);
+        }
+      };
+      checkAnalyses();
+    }
+  }, [currentScreen, isAuthenticated]);
 
   const checkAuthStatus = () => {
     if (Platform.OS === 'web') {
@@ -349,31 +389,22 @@ export default function App() {
     // Check if this is a Likert6 with "Bilmiyorum" option
     const isLikert6 = item.type === 'Likert6' || (item.options_tr && item.options_tr.includes('?: Bilmiyorum'));
     
-    // Parse options if they exist (for Likert6 with custom labels)
+    // For Likert scales, always use numbers
     let labels: string[] = [];
     let values: any[] = [];
     
-    if (item.options_tr) {
-      const opts = item.options_tr.split('|');
-      opts.forEach((opt: string, idx: number) => {
-        if (opt.startsWith('?:')) {
-          labels.push(opt.substring(3).trim());
-          values.push('?');
-        } else {
-          labels.push(opt);
-          values.push(idx + 1);
-        }
-      });
+    if (isLikert6) {
+      // Likert6: 1-5 + "?" for "Bilmiyorum"
+      labels = ['1', '2', '3', '4', '5', '?'];
+      values = [1, 2, 3, 4, 5, '?'];
     } else {
-      // Default Likert5 labels
-      labels = ['-2', '-1', '0', '+1', '+2'];
+      // Default Likert5: 1-5
+      labels = ['1', '2', '3', '4', '5'];
       values = [1, 2, 3, 4, 5];
-      
-      if (isLikert6) {
-        labels.push('Bilmiyorum');
-        values.push('?');
-      }
     }
+    
+    // Show scale explanation
+    const scaleLabel = '1: Kesinlikle Katılmıyorum - 5: Kesinlikle Katılıyorum';
     
     return (
       <View style={[
@@ -386,6 +417,7 @@ export default function App() {
         ]}>
           {(item.text_tr || '').replace('[AD]', 'Kişi')}
         </Text>
+        <Text style={styles.likertScaleLabel}>{scaleLabel}</Text>
         <View style={styles.likertOptions}>
           {labels.map((label: string, idx: number) => (
             <TouchableOpacity 
@@ -739,7 +771,14 @@ export default function App() {
             >
               <Text style={styles.backArrow}>←</Text>
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Yeni Kişi Analizi</Text>
+            <View style={styles.headerTitleWithIcon}>
+              <Image 
+                source={require('./assets/cogni-coach-icon.png')} 
+                style={styles.headerIcon}
+                resizeMode="contain"
+              />
+              <Text style={styles.headerTitle}>Kişi Analizi</Text>
+            </View>
             <View style={styles.headerSpacer} />
           </View>
 
@@ -1015,7 +1054,14 @@ export default function App() {
             >
               <Text style={styles.backArrow}>←</Text>
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Tip Doğrulama (S3)</Text>
+            <View style={styles.headerTitleWithIcon}>
+              <Image 
+                source={require('./assets/cogni-coach-icon.png')} 
+                style={styles.headerIcon}
+                resizeMode="contain"
+              />
+              <Text style={styles.headerTitle}>Tip Doğrulama</Text>
+            </View>
             <View style={styles.headerSpacer} />
           </View>
 
@@ -1129,7 +1175,14 @@ export default function App() {
             >
               <Text style={styles.backArrow}>←</Text>
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Değerler & Sınırlar (S4)</Text>
+            <View style={styles.headerTitleWithIcon}>
+              <Image 
+                source={require('./assets/cogni-coach-icon.png')} 
+                style={styles.headerIcon}
+                resizeMode="contain"
+              />
+              <Text style={styles.headerTitle}>Değerler & Sınırlar</Text>
+            </View>
             <View style={styles.headerSpacer} />
           </View>
 
@@ -1199,7 +1252,14 @@ export default function App() {
           <TouchableOpacity onPress={() => setCurrentScreen('home')} style={styles.backButtonContainer}>
             <Text style={styles.backArrow}>←</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Karakter Analizleri</Text>
+          <View style={styles.headerTitleWithIcon}>
+            <Image 
+              source={require('./assets/cogni-coach-icon.png')} 
+              style={styles.headerIcon}
+              resizeMode="contain"
+            />
+            <Text style={styles.headerTitle}>Kişi Analizleri</Text>
+          </View>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -1254,7 +1314,14 @@ export default function App() {
           <TouchableOpacity onPress={() => setCurrentScreen('home')} style={styles.backButtonContainer}>
             <Text style={styles.backArrow}>←</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>İlişki Analizleri</Text>
+          <View style={styles.headerTitleWithIcon}>
+            <Image 
+              source={require('./assets/cogni-coach-icon.png')} 
+              style={styles.headerIcon}
+              resizeMode="contain"
+            />
+            <Text style={styles.headerTitle}>İlişki Analizleri</Text>
+          </View>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -1290,7 +1357,7 @@ export default function App() {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <Text style={styles.logoLarge}>🧠</Text>
-          <Text style={styles.appName}>My Life Coach</Text>
+          <Text style={styles.appName}>Cogni Coach</Text>
           <Text style={styles.loadingText}>Yükleniyor...</Text>
         </View>
       </SafeAreaView>
@@ -1455,7 +1522,7 @@ export default function App() {
     // Home Screen
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.screenContainer}>
+        <View style={[styles.screenContainer, styles.webContainer]}>
           {/* Header with Profile */}
           <View style={styles.homeHeader}>
             <TouchableOpacity 
@@ -1474,8 +1541,11 @@ export default function App() {
                 }
               }}
             >
-              <Text style={styles.welcomeText}>Hoş geldiniz</Text>
-              <Text style={styles.homeTitle}>My Life Coach</Text>
+              <Image 
+                source={require('./assets/cogni-coach-logo.png')} 
+                style={styles.homeLogo}
+                resizeMode="contain"
+              />
             </TouchableOpacity>
             <TouchableOpacity style={styles.profileButton} onPress={handleLogout}>
               <Image source={profileImage} style={styles.profileImage} />
@@ -1483,130 +1553,129 @@ export default function App() {
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} style={styles.content}>
-            {/* Quick Stats */}
-            <View style={styles.statsContainer}>
-              <View style={styles.statCard}>
-                <Text style={styles.statNumber}>0</Text>
-                <Text style={styles.statLabel}>Analizler</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statNumber}>0</Text>
-                <Text style={styles.statLabel}>Kişiler</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statNumber}>0</Text>
-                <Text style={styles.statLabel}>İlişkiler</Text>
-              </View>
-            </View>
-
-            {/* Profile Edit Button - Only show if S0 completed */}
-            {Platform.OS === 'web' && (() => {
-              try {
-                return localStorage.getItem('S0_profile_answers') !== null;
-              } catch {
-                return false;
-              }
-            })() && (
-              <TouchableOpacity 
-                style={styles.editProfileButton}
-                onPress={() => setCurrentScreen('s0profile')}
-              >
-                <Text style={styles.editProfileButtonText}>🖊️ Profili Düzenle</Text>
-              </TouchableOpacity>
-            )}
-            
-
-            {/* Main Actions */}
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Karakter Analizleri</Text>
-              <View style={styles.menuGrid}>
+            {/* AI Chat Window */}
+            <View style={styles.aiChatWindow}>
+              <View style={styles.aiChatInputContainer}>
+                <TextInput
+                  style={[styles.aiChatTextArea, !hasSelfAnalysis && styles.aiChatTextAreaDisabled]}
+                  placeholder={!hasSelfAnalysis ? 
+                    "Cogni Coach ile konuşmak için önce sizi tanımam lazım. Bunun için kendi analizinizi tamamlamanız gerekiyor. Alttaki Kendi Analizim butonuna tıklayın" : 
+                    "Cogni Coach'a ne sormak ya da ne anlatmak istersin? Hadi laflayalım biraz..."}
+                  placeholderTextColor="#9CA3AF"
+                  multiline
+                  numberOfLines={4}
+                  value={chatMessage}
+                  onChangeText={setChatMessage}
+                  editable={hasSelfAnalysis}
+                />
                 <TouchableOpacity 
-                  style={styles.menuCard}
-                  onPress={async () => {
-                    // Check if user has any self analysis
-                    try {
-                      const userEmail = Platform.OS === 'web' ? 
-                        localStorage.getItem('userEmail') || 'test@test.com' : 
-                        'test@test.com';
-                      
-                      const response = await fetch(`http://localhost:8080/v1/user/analyses`, {
-                        headers: {
-                          'x-user-email': userEmail,
-                        },
-                      });
-                      
-                      if (response.ok) {
-                        const data = await response.json();
-                        const selfAnalyses = (data.analyses || []).filter(
-                          (a: any) => a.analysis_type === 'self'
-                        );
-                        
-                        if (selfAnalyses.length > 0) {
-                          // User has self analysis, go to MyAnalyses screen
-                          setCurrentScreen('MyAnalyses');
-                        } else {
-                          // No self analysis, start the form flow
-                          handleSelfAnalysis();
-                        }
-                      } else {
-                        // On error, default to starting form flow
-                        handleSelfAnalysis();
-                      }
-                    } catch (error) {
-                      console.error('Error checking analyses:', error);
-                      // On error, default to starting form flow
-                      handleSelfAnalysis();
+                  style={[
+                    styles.aiChatSendButton, 
+                    (!hasSelfAnalysis || !chatMessage.trim()) ? styles.aiChatSendButtonDisabled : null
+                  ]}
+                  onPress={() => {
+                    if (hasSelfAnalysis && chatMessage.trim()) {
+                      // TODO: Send message to coach
+                      setCurrentScreen('chat');
+                      setChatMessage('');
                     }
                   }}
+                  disabled={!hasSelfAnalysis || !chatMessage.trim()}
                 >
-                  <Image source={profileImage} style={styles.menuIconImage} />
-                  <Text style={styles.menuTitle}>Kendi Analizim</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.menuCard}
-                  onPress={handleNewPersonAnalysis}
-                >
-                  <Image source={newPersonAnalysisImage} style={styles.menuIconImage} />
-                  <Text style={styles.menuTitle}>Yeni Kişi Analizi</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.menuCard}
-                  onPress={() => setCurrentScreen('MyAnalyses')}
-                >
-                  <Image source={analysisImage} style={styles.menuIconImage} />
-                  <Text style={styles.menuTitle}>Tüm Analizlerim</Text>
+                  <View style={styles.sendIconContainer}>
+                    <Text style={styles.sendIcon}>↑</Text>
+                  </View>
                 </TouchableOpacity>
               </View>
             </View>
-
+            
+            {/* Kendi Analizim Button */}
             <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>İlişkilerim</Text>
               <TouchableOpacity 
-                style={[styles.actionCard, styles.secondaryCard]}
-                onPress={() => setCurrentScreen('reports')}
+                style={styles.fullWidthButton}
+                onPress={() => {
+                  if (hasSelfAnalysis) {
+                    setCurrentScreen('MyAnalyses');
+                  } else {
+                    handleSelfAnalysis();
+                  }
+                }}
               >
-                <View style={styles.cardContent}>
-                  <View>
-                    <Text style={styles.secondaryCardTitle}>İlişki Analizi Başlat</Text>
-                    <Text style={styles.cardDescription}>
-                      Kişiler arası dinamikleri keşfedin
-                    </Text>
-                  </View>
-                  <Text style={styles.cardArrow}>→</Text>
-                </View>
+                <Text style={styles.fullWidthButtonText}>
+                  {hasSelfAnalysis ? 'Kendi Analizim' : 'Kendi Analizimi Başlat'}
+                </Text>
               </TouchableOpacity>
             </View>
-            
+
+            {/* Kişi Analizleri Section */}
             <View style={styles.sectionContainer}>
-              <TouchableOpacity 
-                style={styles.menuCard}
-                onPress={() => setCurrentScreen('s3form')}
-              >
-                <Text style={styles.menuIcon}></Text>
-                <Text style={styles.menuTitle}>Tip Doğrulama</Text>
-              </TouchableOpacity>
+              <Text style={styles.sectionTitle}>Kişi Analizleri</Text>
+              <View style={styles.analysisButtonsContainer}>
+                <TouchableOpacity 
+                  style={styles.analysisButton}
+                  onPress={handleNewPersonAnalysis}
+                >
+                  <Text style={styles.analysisButtonText}>➕ Yeni Analiz</Text>
+                </TouchableOpacity>
+                
+                {/* Show recent person analyses */}
+                {personAnalyses.slice(0, 8).map((person, index) => (
+                  <TouchableOpacity 
+                    key={index}
+                    style={styles.analysisButton}
+                    onPress={() => {
+                      // Navigate to person's analysis
+                      setCurrentScreen('MyAnalyses');
+                    }}
+                  >
+                    <Text style={styles.analysisButtonText}>{person}</Text>
+                  </TouchableOpacity>
+                ))}
+                
+                {/* Show 'Tümü' button if there are more than 8 analyses */}
+                {personAnalyses.length > 8 && (
+                  <TouchableOpacity 
+                    style={styles.analysisButton}
+                    onPress={() => setCurrentScreen('MyAnalyses')}
+                  >
+                    <Text style={styles.analysisButtonText}>📋 Tümü</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {/* İlişki Analizleri Section */}
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionTitle}>İlişki Analizleri</Text>
+              <View style={styles.analysisButtonsContainer}>
+                <TouchableOpacity 
+                  style={styles.analysisButton}
+                  onPress={() => setCurrentScreen('reports')}
+                >
+                  <Text style={styles.analysisButtonText}>➕ Yeni Analiz</Text>
+                </TouchableOpacity>
+                
+                {/* Show recent relation analyses */}
+                {relationAnalyses.slice(0, 8).map((relation, index) => (
+                  <TouchableOpacity 
+                    key={index}
+                    style={styles.analysisButton}
+                    onPress={() => setCurrentScreen('reports')}
+                  >
+                    <Text style={styles.analysisButtonText}>{relation}</Text>
+                  </TouchableOpacity>
+                ))}
+                
+                {/* Show 'Tümü' button if there are more than 8 analyses */}
+                {relationAnalyses.length > 8 && (
+                  <TouchableOpacity 
+                    style={styles.analysisButton}
+                    onPress={() => setCurrentScreen('reports')}
+                  >
+                    <Text style={styles.analysisButtonText}>📋 Tümü</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
 
             {/* Bottom Spacing */}
@@ -1712,6 +1781,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
+  webContainer: Platform.select({
+    web: {
+      maxWidth: 999,
+      width: '100%',
+      alignSelf: 'center',
+    },
+    default: {},
+  }),
   screenContainer: {
     flex: 1,
     maxWidth: 990,
@@ -1735,8 +1812,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 20,
+    paddingVertical: 10,
     backgroundColor: '#FFFFFF',
   },
   backButtonContainer: {
@@ -1772,6 +1848,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1E293B',
   },
+  homeLogo: {
+    height: 40,
+    width: 150,
+  },
+  headerTitleWithIcon: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerIcon: {
+    width: 24,
+    height: 24,
+    marginRight: 8,
+  },
   profileButton: {
     width: 48,
     height: 48,
@@ -1795,6 +1886,100 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
 
+  // AI Chat Window
+  aiChatWindow: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  aiChatInputContainer: {
+    position: 'relative',
+    width: 400,
+    maxWidth: '100%',
+  },
+  aiChatTextArea: {
+    width: '100%',
+    height: 100,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 3,
+    padding: 12,
+    paddingRight: 50,
+    fontSize: 14,
+    color: '#1E293B',
+    backgroundColor: '#FFFFFF',
+    textAlignVertical: 'top',
+  },
+  aiChatTextAreaDisabled: {
+    backgroundColor: '#F8FAFC',
+    opacity: 0.9,
+  },
+  aiChatSendButton: {
+    position: 'absolute',
+    right: 8,
+    bottom: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 3,
+    backgroundColor: 'rgb(71, 73, 74)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aiChatSendButtonDisabled: {
+    backgroundColor: '#E5E7EB',
+  },
+  sendIconContainer: {
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sendIcon: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  sendIconDisabled: {
+    color: '#F8FAFC',
+  },
+  
+  // Analysis Buttons
+  analysisButtonsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  analysisButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  analysisButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1E293B',
+  },
+  fullWidthButton: {
+    width: '100%',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+  },
+  fullWidthButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1E293B',
+  },
+  
   // Stats
   statsContainer: {
     flexDirection: 'row',
@@ -2184,24 +2369,31 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   questionContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgb(45, 55, 72)',  // Koyu gri arka plan
     padding: 16,
     borderRadius: 3,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgb(45, 55, 72)',
   },
   questionText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000000',  // Siyah
-    marginBottom: 20,
+    color: '#FFFFFF',  // Beyaz metin (koyu arka plan için)
+    marginBottom: 20,  // Spacing between question and options
     lineHeight: 24,
   },
   likertOptions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+  },
+  likertScaleLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    marginBottom: 12,
   },
   likertOption: {
     width: 48,
@@ -2214,13 +2406,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   likertOptionSelected: {
-    backgroundColor: '#000000',  // Siyah arka plan
-    borderColor: '#000000',
+    backgroundColor: 'rgb(96, 187, 202)',  // Cogni Coach icon rengi
+    borderColor: 'rgb(96, 187, 202)',
   },
   likertOptionText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#64748B',
+    textAlign: 'center',
   },
   likertOptionTextSelected: {
     color: '#FFFFFF',  // Beyaz yazı
@@ -2238,8 +2431,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   multiOptionSelected: {
-    backgroundColor: '#000000',  // Siyah
-    borderColor: '#000000',
+    backgroundColor: 'rgb(96, 187, 202)',  // Cogni Coach icon rengi
+    borderColor: 'rgb(96, 187, 202)',
   },
   multiOptionText: {
     fontSize: 14,
@@ -2250,7 +2443,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',  // Beyaz yazı
   },
   submitButton: {
-    backgroundColor: '#000000',  // Siyah
+    backgroundColor: 'rgb(45, 55, 72)',  // Koyu gri
     padding: 16,
     borderRadius: 3,
     alignItems: 'center',
@@ -2278,8 +2471,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   forcedOptionSelected: {
-    backgroundColor: '#000000',  // Siyah
-    borderColor: '#000000',
+    backgroundColor: 'rgb(96, 187, 202)',  // Cogni Coach icon rengi
+    borderColor: 'rgb(96, 187, 202)',
   },
   forcedOptionText: {
     fontSize: 14,
@@ -2402,7 +2595,7 @@ const styles = StyleSheet.create({
   },
   progressText: {
     fontSize: 14,
-    color: '#64748B',
+    color: 'rgb(96, 187, 202)',  // Cogni Coach icon rengi
   },
   progressPercentage: {
     fontSize: 15,
@@ -2417,7 +2610,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#000000',  // Siyah
+    backgroundColor: 'rgb(45, 55, 72)',  // Koyu gri
     borderRadius: 3,
   },
   
@@ -2462,7 +2655,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     marginVertical: 8,
-    backgroundColor: '#000000',  // Siyah arka plan
+    backgroundColor: 'rgb(45, 55, 72)',  // Koyu gri arka plan
     borderRadius: 3,
   },
   sectionDividerText: {

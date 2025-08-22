@@ -530,7 +530,7 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="rgb(66, 153, 225)" />
+          <ActivityIndicator size="large" color="rgb(96, 187, 202)" />
           <Text style={styles.loadingText}>
             {isProcessing 
               ? "Verdiğiniz bilgiler doğrultusunda özel eğitilmiş yapay zekamız, ileri psikometrik teknikler kullanarak kişisel analizinizi hazırlıyor..."
@@ -760,7 +760,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   optionCardSelected: {
-    borderColor: 'rgb(66, 153, 225)',
+    borderColor: 'rgb(96, 187, 202)',
     backgroundColor: '#EFF6FF',
   },
   optionHeader: {
@@ -776,7 +776,7 @@ const styles = StyleSheet.create({
   optionPrice: {
     fontSize: 20,
     fontWeight: '700',
-    color: 'rgb(66, 153, 225)',
+    color: 'rgb(96, 187, 202)',
   },
   optionFeatures: {
     marginBottom: 15,
@@ -792,7 +792,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   selectButton: {
-    backgroundColor: 'rgb(66, 153, 225)',
+    backgroundColor: 'rgb(96, 187, 202)',
     padding: 15,
     borderRadius: 3,
     alignItems: 'center',

@@ -300,18 +300,37 @@ export async function runSelfAnalysis(payload:any, userLang:string, userId:strin
     }
   }
   
+  // Parse markdown into blocks for better readability
+  const parseIntoBlocks = (markdown: string) => {
+    if (!markdown) return [];
+    
+    // Split by ## headings (main sections)
+    const sections = markdown.split(/(?=^## )/gm);
+    
+    return sections
+      .filter(section => section.trim())
+      .map((section, index) => ({
+        id: `block-${index}`,
+        content: section.trim()
+      }));
+  };
+  
+  const blocks = parseIntoBlocks(cleanedContent);
+  
   // Update analysis record with result
   if (currentAnalysisId) {
     await pool.query(
       `UPDATE analysis_results 
        SET status = 'completed', 
            result_markdown = $1, 
-           lifecoaching_notes = $2,
+           result_blocks = $2,
+           lifecoaching_notes = $3,
            completed_at = NOW(),
-           metadata = $3
-       WHERE id = $4`,
+           metadata = $4
+       WHERE id = $5`,
       [
         cleanedContent,
+        JSON.stringify(blocks),
         lifecoachingNotes,
         { language: targetLang, language_ok: languageOk },
         currentAnalysisId

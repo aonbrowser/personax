@@ -12,6 +12,7 @@ import {
   AsyncStorage,
   KeyboardAvoidingView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import DraggableRanking from '../components/DraggableRanking';
 
@@ -74,9 +75,9 @@ export default function NewFormsScreen({ navigation, route }: any) {
   };
 
   const formTitles = {
-    1: 'TANIŞALIM',
-    2: 'Kişilik ve Mizaç',
-    3: 'Davranış, Dinamikler ve Kişisel Anlatı'
+    1: 'Tanışalım',
+    2: 'Kişilik & Mizaç',
+    3: 'Davranış & Anlatı'
   };
 
 
@@ -723,43 +724,108 @@ export default function NewFormsScreen({ navigation, route }: any) {
         );
 
       case 'Scale10':
+        // Check if this item has custom options
+        const hasCustomOptions = item.options_tr && item.options_tr.includes(' - ');
+        
+        if (hasCustomOptions) {
+          // Render as vertical list with descriptions
+          const options = item.options_tr.split('|');
+          return (
+            <View style={styles.verticalOptionsContainer}>
+              {options.map((option: string, index: number) => {
+                let optionValue: number;
+                let optionText: string;
+                
+                // Parse the option (could be "1 - Description" or just "1")
+                if (option.includes(' - ')) {
+                  const parts = option.split(' - ');
+                  optionValue = parseInt(parts[0]);
+                  optionText = option;
+                } else {
+                  // For simple numbers without description
+                  optionValue = parseInt(option);
+                  optionText = option;
+                }
+                
+                const isSelected = value === optionValue;
+                
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={[styles.verticalOption, isSelected && styles.verticalOptionSelected]}
+                    onPress={() => handleAnswer(item.id, optionValue)}
+                  >
+                    <Text style={[styles.verticalOptionText, isSelected && styles.verticalOptionTextSelected]}>
+                      {optionText}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          );
+        } else {
+          // Original grid layout for questions without custom options
+          return (
+            <View style={styles.scaleContainer}>
+              <View style={styles.scaleGrid}>
+                {/* First row: 1-5 */}
+                <View style={styles.scaleRow}>
+                  {[1, 2, 3, 4, 5].map((num) => {
+                    const isSelected = value === num;
+                    return (
+                      <TouchableOpacity
+                        key={num}
+                        style={[styles.scaleOption, isSelected && styles.scaleOptionSelected]}
+                        onPress={() => handleAnswer(item.id, num)}
+                      >
+                        <Text style={[styles.scaleText, isSelected && styles.scaleTextSelected]}>
+                          {num}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                {/* Second row: 6-10 */}
+                <View style={styles.scaleRow}>
+                  {[6, 7, 8, 9, 10].map((num) => {
+                    const isSelected = value === num;
+                    return (
+                      <TouchableOpacity
+                        key={num}
+                        style={[styles.scaleOption, isSelected && styles.scaleOptionSelected]}
+                        onPress={() => handleAnswer(item.id, num)}
+                      >
+                        <Text style={[styles.scaleText, isSelected && styles.scaleTextSelected]}>
+                          {num}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+          );
+        }
+
+      case 'Likert6':
         return (
-          <View style={styles.scaleContainer}>
-            <View style={styles.scaleGrid}>
-              {/* First row: 1-5 */}
-              <View style={styles.scaleRow}>
-                {[1, 2, 3, 4, 5].map((num) => {
-                  const isSelected = value === num;
-                  return (
-                    <TouchableOpacity
-                      key={num}
-                      style={[styles.scaleOption, isSelected && styles.scaleOptionSelected]}
-                      onPress={() => handleAnswer(item.id, num)}
-                    >
-                      <Text style={[styles.scaleText, isSelected && styles.scaleTextSelected]}>
-                        {num}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              {/* Second row: 6-10 */}
-              <View style={styles.scaleRow}>
-                {[6, 7, 8, 9, 10].map((num) => {
-                  const isSelected = value === num;
-                  return (
-                    <TouchableOpacity
-                      key={num}
-                      style={[styles.scaleOption, isSelected && styles.scaleOptionSelected]}
-                      onPress={() => handleAnswer(item.id, num)}
-                    >
-                      <Text style={[styles.scaleText, isSelected && styles.scaleTextSelected]}>
-                        {num}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+          <View style={styles.likertContainer}>
+            <Text style={styles.likertLabel}>1: Kesinlikle Katılmıyorum - 5: Kesinlikle Katılıyorum</Text>
+            <View style={styles.likertOptions}>
+              {[1, 2, 3, 4, 5, '?'].map((num) => {
+                const isSelected = value === num;
+                return (
+                  <TouchableOpacity
+                    key={num}
+                    style={[styles.likertOption, isSelected && styles.likertOptionSelected]}
+                    onPress={() => handleAnswer(item.id, num)}
+                  >
+                    <Text style={[styles.likertText, isSelected && styles.likertTextSelected]}>
+                      {num}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
         );
@@ -946,7 +1012,7 @@ export default function NewFormsScreen({ navigation, route }: any) {
         </View>
         
         <View style={[styles.centerContent, styles.webContainer]}>
-          <ActivityIndicator size="large" color="rgb(66, 153, 225)" />
+          <ActivityIndicator size="large" color="rgb(96, 187, 202)" />
           <Text style={styles.loadingText}>Yükleniyor...</Text>
         </View>
       </SafeAreaView>
@@ -1077,11 +1143,18 @@ export default function NewFormsScreen({ navigation, route }: any) {
           </View>
           
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>
-              {formTitles[currentForm as keyof typeof formTitles]}
-            </Text>
+            <View style={styles.titleWithIcon}>
+              <Image 
+                source={require('../assets/cogni-coach-icon.png')} 
+                style={styles.headerIcon}
+                resizeMode="contain"
+              />
+              <Text style={styles.headerTitle}>
+                {formTitles[currentForm as keyof typeof formTitles]}
+              </Text>
+            </View>
             <Text style={styles.headerSubtitle}>
-              Kişilik Analizi
+              Kendi Analizim
             </Text>
           </View>
           
@@ -1215,7 +1288,7 @@ const styles = StyleSheet.create({
   webContainer: {
     ...Platform.select({
       web: {
-        maxWidth: 990,
+        maxWidth: 999,
         width: '100%',
         marginHorizontal: 'auto',
         alignSelf: 'center',
@@ -1268,6 +1341,15 @@ const styles = StyleSheet.create({
     flex: 2,
     alignItems: 'center',
   },
+  titleWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerIcon: {
+    width: 24,
+    height: 24,
+    marginRight: 8,
+  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -1287,7 +1369,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   progressBadge: {
-    backgroundColor: 'rgb(66, 153, 225)',
+    backgroundColor: 'rgb(45, 55, 72)',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 3,
@@ -1341,14 +1423,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     padding: 12,
     borderRadius: 3,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 1,
+        },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+      },
+    }),
   },
   questionText: {
     fontSize: 16,
@@ -1399,6 +1488,8 @@ const styles = StyleSheet.create({
     color: 'rgb(45, 55, 72)',
   },
   choiceContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   choiceButton: {
@@ -1408,15 +1499,18 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     borderRadius: 3,
     backgroundColor: '#FFFFFF',
+    flexShrink: 1,
+    minWidth: 0,
   },
   choiceButtonSelected: {
-    backgroundColor: 'rgb(66, 153, 225)',
-    borderColor: 'rgb(66, 153, 225)',
+    backgroundColor: 'rgb(96, 187, 202)',
+    borderColor: 'rgb(96, 187, 202)',
   },
   choiceText: {
     fontSize: 14,
     color: 'rgb(0, 0, 0)',
     lineHeight: 20,
+    textAlign: 'center',
   },
   choiceTextSelected: {
     color: '#FFFFFF',
@@ -1444,8 +1538,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   likertOptionSelected: {
-    backgroundColor: 'rgb(66, 153, 225)',
-    borderColor: 'rgb(66, 153, 225)',
+    backgroundColor: 'rgb(96, 187, 202)',
+    borderColor: 'rgb(96, 187, 202)',
   },
   likertText: {
     fontSize: 16,
@@ -1483,8 +1577,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   scaleOptionSelected: {
-    backgroundColor: 'rgb(66, 153, 225)',
-    borderColor: 'rgb(66, 153, 225)',
+    backgroundColor: 'rgb(96, 187, 202)',
+    borderColor: 'rgb(96, 187, 202)',
   },
   scaleText: {
     fontSize: 16,
@@ -1493,6 +1587,30 @@ const styles = StyleSheet.create({
   },
   scaleTextSelected: {
     color: '#FFFFFF',
+  },
+  verticalOptionsContainer: {
+    gap: 8,
+  },
+  verticalOption: {
+    padding: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 3,
+    marginBottom: 8,
+  },
+  verticalOptionSelected: {
+    backgroundColor: 'rgb(96, 187, 202)',
+    borderColor: 'rgb(96, 187, 202)',
+  },
+  verticalOptionText: {
+    fontSize: 14,
+    color: 'rgb(0, 0, 0)',
+    lineHeight: 20,
+  },
+  verticalOptionTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   rankingContainer: {
     gap: 16,
@@ -1550,7 +1668,7 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
   },
   rankingValueButton: {
-    backgroundColor: 'rgb(66, 153, 225)',
+    backgroundColor: 'rgb(96, 187, 202)',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 3,
@@ -1594,7 +1712,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 3,
     borderWidth: 1,
-    borderColor: 'rgb(66, 153, 225)',
+    borderColor: 'rgb(96, 187, 202)',
     ...Platform.select({
       web: {
         cursor: 'move',
@@ -1681,8 +1799,8 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   multipleChoiceOptionSelected: {
-    backgroundColor: 'rgb(66, 153, 225)',
-    borderColor: 'rgb(66, 153, 225)',
+    backgroundColor: 'rgb(96, 187, 202)',
+    borderColor: 'rgb(96, 187, 202)',
   },
   multipleChoiceText: {
     fontSize: 14,
@@ -1746,7 +1864,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7EB',
   },
   nextButton: {
-    backgroundColor: 'rgb(66, 153, 225)',
+    backgroundColor: 'rgb(45, 55, 72)',
   },
   navButtonText: {
     fontSize: 14,
@@ -1819,7 +1937,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#E5E7EB',
   },
   completeMissingButton: {
-    backgroundColor: 'rgb(66, 153, 225)',
+    backgroundColor: 'rgb(96, 187, 202)',
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 3,
@@ -1834,7 +1952,7 @@ const styles = StyleSheet.create({
   // Question numbering
   questionNumber: {
     fontWeight: '700',
-    color: 'rgb(66, 153, 225)',
+    color: 'rgb(96, 187, 202)',
     fontSize: 16,
   },
   // DISC styles

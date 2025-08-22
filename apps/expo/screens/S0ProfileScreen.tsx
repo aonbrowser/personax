@@ -807,8 +807,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   choiceButtonSelected: {
-    backgroundColor: 'rgb(66, 153, 225)',
-    borderColor: 'rgb(66, 153, 225)',
+    backgroundColor: 'rgb(96, 187, 202)',
+    borderColor: 'rgb(96, 187, 202)',
   },
   choiceHighlighted: {
     borderColor: '#EF4444',
@@ -860,8 +860,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   likertOptionSelected: {
-    backgroundColor: 'rgb(66, 153, 225)',
-    borderColor: 'rgb(66, 153, 225)',
+    backgroundColor: 'rgb(96, 187, 202)',
+    borderColor: 'rgb(96, 187, 202)',
   },
   likertOptionHighlighted: {
     borderColor: '#EF4444',
