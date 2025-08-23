@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import DraggableRanking from '../components/DraggableRanking';
 
-const API_URL = 'http://localhost:8080';
+import { API_URL } from '../config';
 
 interface FormItem {
   id: string;
@@ -26,6 +26,7 @@ interface FormItem {
   options_tr?: string;
   display_order?: number;
   subscale?: string;
+  conditional_on?: string;
 }
 
 interface FormAnswers {
@@ -292,6 +293,68 @@ export default function NewFormsScreen({ navigation, route }: any) {
     }
   };
 
+  // Check if an item should be shown based on conditional logic
+  const shouldShowItem = (item: FormItem): boolean => {
+    if (!item.conditional_on) return true;
+    
+    // Special handling for NOT conditions (e.g., "F3_SABOTAGE_AWARENESS!=Hayır")
+    if (item.conditional_on.includes('!=')) {
+      const [condId, condValue] = item.conditional_on.split('!=');
+      const parentAnswer = answers[condId];
+      
+      // Debug log for F3_SABOTAGE_PATTERNS
+      if (item.id === 'F3_SABOTAGE_PATTERNS') {
+        console.log('=== F3_SABOTAGE_PATTERNS VISIBILITY CHECK ===');
+        console.log('Condition:', item.conditional_on);
+        console.log('Parent ID:', condId);
+        console.log('Condition value (should NOT be):', condValue);
+        console.log('Parent answer (raw):', parentAnswer);
+        console.log('Parent answer type:', typeof parentAnswer);
+      }
+      
+      if (parentAnswer === undefined || parentAnswer === null || parentAnswer === '') {
+        if (item.id === 'F3_SABOTAGE_PATTERNS') {
+          console.log('Result: HIDDEN (no answer yet)');
+        }
+        return false; // Hide if no answer yet
+      }
+      
+      const parentItem = items.find(i => i.id === condId);
+      if (parentItem && parentItem.type === 'SingleChoice' && parentItem.options_tr) {
+        const options = parentItem.options_tr.split('|');
+        const answerIndex = typeof parentAnswer === 'string' ? parseInt(parentAnswer) : parentAnswer;
+        const selectedOption = options[answerIndex]?.trim();
+        
+        if (item.id === 'F3_SABOTAGE_PATTERNS') {
+          console.log('Parent options:', options);
+          console.log('Answer index:', answerIndex);
+          console.log('Selected option:', selectedOption);
+          console.log('Should show?:', selectedOption !== condValue);
+          console.log('=== END CHECK ===');
+        }
+        
+        return selectedOption !== condValue; // Show if NOT equal to condValue
+      }
+      
+      return parentAnswer !== condValue;
+    }
+    
+    // Regular equality check
+    const [condId, condValue] = item.conditional_on.split('=');
+    const parentAnswer = answers[condId];
+    
+    // For SingleChoice items, we need to check the selected option text
+    const parentItem = items.find(i => i.id === condId);
+    if (parentItem && parentItem.type === 'SingleChoice' && parentItem.options_tr) {
+      const options = parentItem.options_tr.split('|');
+      const answerIndex = typeof parentAnswer === 'string' ? parseInt(parentAnswer) : parentAnswer;
+      const selectedOption = options[answerIndex]?.trim();
+      return selectedOption === condValue;
+    }
+    
+    return parentAnswer === condValue;
+  };
+
   const saveAnswers = async () => {
     try {
       const storageKey = `form${currentForm}_answers`;
@@ -308,7 +371,51 @@ export default function NewFormsScreen({ navigation, route }: any) {
   };
 
   const handleAnswer = async (itemId: string, value: any) => {
-    const newAnswers = { ...answers, [itemId]: value };
+    let newAnswers = { ...answers, [itemId]: value };
+    
+    // Check if any conditional items should be cleared
+    // If this answer affects conditional items, clear them if condition is not met
+    const dependentItems = items.filter(item => {
+      if (!item.conditional_on) return false;
+      const condId = item.conditional_on.includes('!=') 
+        ? item.conditional_on.split('!=')[0]
+        : item.conditional_on.split('=')[0];
+      return condId === itemId;
+    });
+    
+    dependentItems.forEach(depItem => {
+      // Need to check with the new answer value
+      const parentItem = items.find(i => i.id === itemId);
+      let shouldShow = true;
+      
+      if (depItem.conditional_on?.includes('!=')) {
+        const [condId, condValue] = depItem.conditional_on.split('!=');
+        if (parentItem && parentItem.type === 'SingleChoice' && parentItem.options_tr) {
+          const options = parentItem.options_tr.split('|');
+          const valueIndex = typeof value === 'string' ? parseInt(value) : value;
+          const selectedOption = options[valueIndex]?.trim();
+          shouldShow = selectedOption !== condValue;
+          
+          // Debug log for F3_SABOTAGE_PATTERNS
+          if (depItem.id === 'F3_SABOTAGE_PATTERNS') {
+            console.log('Dependency check:', {
+              parentId: itemId,
+              value,
+              valueIndex,
+              selectedOption,
+              condValue,
+              shouldShow
+            });
+          }
+        }
+      }
+      
+      // If condition is not met, clear the dependent answer
+      if (!shouldShow && newAnswers[depItem.id]) {
+        delete newAnswers[depItem.id];
+      }
+    });
+    
     setAnswers(newAnswers);
     
     // Auto-save to localStorage/AsyncStorage
@@ -341,13 +448,34 @@ export default function NewFormsScreen({ navigation, route }: any) {
     const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
     const recognition = new SpeechRecognition();
     
-    recognition.lang = 'tr-TR';
-    recognition.continuous = true; // Changed to true for better experience
-    recognition.interimResults = true;
+    // Force Turkish language for speech recognition
+    const userLang = 'tr'; // Always use Turkish
+    
+    // Language mapping for speech recognition
+    const speechLangMap: { [key: string]: string } = {
+      'tr': 'tr-TR',      // Turkish
+      'en': 'en-US',      // English  
+      'ar': 'ar-SA',      // Arabic
+      'es': 'es-ES',      // Spanish
+      'ru': 'ru-RU',      // Russian
+      'de': 'de-DE',      // German
+      'fr': 'fr-FR',      // French
+      'it': 'it-IT',      // Italian
+      'pt': 'pt-BR',      // Portuguese
+      'nl': 'nl-NL',      // Dutch
+      'zh': 'zh-CN',      // Chinese (Simplified)
+      'zh-TW': 'zh-TW',   // Chinese (Traditional)
+      'ja': 'ja-JP',      // Japanese
+      'ko': 'ko-KR',      // Korean
+      'hi': 'hi-IN',      // Hindi
+    };
+    
+    recognition.lang = speechLangMap[userLang] || 'tr-TR';
+    console.log('Speech recognition language set to:', recognition.lang);
+    
+    recognition.continuous = true; // Keep listening until user stops
+    recognition.interimResults = false; // Only get final results
     recognition.maxAlternatives = 1;
-
-    let finalTranscript = answers[itemId] || '';
-    let interimTranscript = '';
 
     recognition.onstart = () => {
       setIsRecording(itemId);
@@ -355,18 +483,16 @@ export default function NewFormsScreen({ navigation, route }: any) {
     };
 
     recognition.onresult = (event: any) => {
-      interimTranscript = '';
+      // Get only the latest result to avoid duplicates
+      const lastResultIndex = event.results.length - 1;
+      const transcript = event.results[lastResultIndex][0].transcript;
       
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript + ' ';
-        } else {
-          interimTranscript += event.results[i][0].transcript;
-        }
-      }
+      // Get current text from ref to ensure latest value
+      const currentText = answersRef.current[itemId] || '';
       
-      const combinedTranscript = finalTranscript + interimTranscript;
-      handleAnswer(itemId, combinedTranscript.trim());
+      // Add space if there's existing text
+      const newText = currentText ? currentText + ' ' + transcript : transcript;
+      handleAnswer(itemId, newText.trim());
       
       // Keep focus on the input
       if (textInputRefs.current[itemId]) {
@@ -389,8 +515,30 @@ export default function NewFormsScreen({ navigation, route }: any) {
     };
 
     recognition.onend = () => {
-      console.log('Speech recognition ended');
-      // Don't set isRecording to null here, let stopSpeechRecognition handle it
+      console.log('Speech recognition ended for:', itemId);
+      // Check if we're still supposed to be recording
+      setTimeout(() => {
+        if (isRecording === itemId) {
+          console.log('Restarting speech recognition for:', itemId);
+          try {
+            const newRecognition = new (window.webkitSpeechRecognition || window.SpeechRecognition)();
+            newRecognition.lang = recognition.lang;
+            newRecognition.continuous = true;
+            newRecognition.interimResults = false;
+            newRecognition.maxAlternatives = 1;
+            
+            newRecognition.onresult = recognition.onresult;
+            newRecognition.onerror = recognition.onerror;
+            newRecognition.onend = recognition.onend;
+            newRecognition.onstart = recognition.onstart;
+            
+            recognitionRef.current = newRecognition;
+            newRecognition.start();
+          } catch (e) {
+            console.log('Could not restart:', e);
+          }
+        }
+      }, 100);
     };
 
     recognitionRef.current = recognition;
@@ -398,9 +546,15 @@ export default function NewFormsScreen({ navigation, route }: any) {
   }, [answers]);
 
   const stopSpeechRecognition = () => {
+    setIsRecording(null); // Set this first to prevent restart
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsRecording(null);
+      try {
+        recognitionRef.current.stop();
+        recognitionRef.current.onend = null; // Remove onend handler to prevent restart
+      } catch (e) {
+        console.log('Error stopping recognition:', e);
+      }
+      recognitionRef.current = null;
     }
   };
 
@@ -525,32 +679,34 @@ export default function NewFormsScreen({ navigation, route }: any) {
       case 'OpenText':
         return (
           <View style={styles.openTextContainer}>
-            <TextInput
-              ref={(ref) => { textInputRefs.current[item.id] = ref; }}
-              style={[styles.textInput, styles.multilineInput]}
-              value={value}
-              onChangeText={(text) => handleAnswer(item.id, text)}
-              multiline
-              numberOfLines={4}
-              placeholder="Cevabınızı yazın..."
-              placeholderTextColor="#94A3B8"
-            />
-            {speechRecognitionAvailable && (
-              <TouchableOpacity
-                style={[styles.micButton, isRecording === item.id && styles.micButtonActive]}
-                onPress={() => {
-                  if (isRecording === item.id) {
-                    stopSpeechRecognition();
-                  } else {
-                    startSpeechRecognition(item.id);
-                  }
-                }}
-              >
-                <Text style={styles.micButtonText}>
-                  {isRecording === item.id ? '🔴 Durdurmak için tıkla' : '🎤 Konuşarak yanıtla'}
-                </Text>
-              </TouchableOpacity>
-            )}
+            <View style={styles.textInputWrapper}>
+              <TextInput
+                ref={(ref) => { textInputRefs.current[item.id] = ref; }}
+                style={[styles.textInput, styles.multilineInput, speechRecognitionAvailable && styles.textInputWithMic]}
+                value={value}
+                onChangeText={(text) => handleAnswer(item.id, text)}
+                multiline
+                numberOfLines={4}
+                placeholder="Cevabınızı yazın..."
+                placeholderTextColor="#94A3B8"
+              />
+              {speechRecognitionAvailable && (
+                <TouchableOpacity
+                  style={[styles.micButtonInline, isRecording === item.id && styles.micButtonInlineActive]}
+                  onPress={() => {
+                    if (isRecording === item.id) {
+                      stopSpeechRecognition();
+                    } else {
+                      startSpeechRecognition(item.id);
+                    }
+                  }}
+                >
+                  <Text style={styles.micIcon}>
+                    {isRecording === item.id ? '🔴' : '🎤'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         );
 
@@ -681,16 +837,42 @@ export default function NewFormsScreen({ navigation, route }: any) {
           );
         }
         const multiChoiceOptions = item.options_tr.split('|').map(opt => opt.trim());
+        const selectedOptions = Array.isArray(value) ? value : [];
+        const maxSelections = (item.id === 'F3_SABOTAGE_PATTERNS' || item.id === 'F3_COPING_MECHANISMS') ? 4 : 999;
+        const isLastOptionExclusive = item.id === 'F3_COPING_MECHANISMS'; // For "none of the above" logic
+        
         return (
           <View style={styles.multipleChoiceContainer}>
             {multiChoiceOptions.map((option, index) => {
-              const optionKey = String.fromCharCode(65 + index); // A, B, C, D, E
-              const isSelected = value === optionKey;
+              const isSelected = selectedOptions.includes(index);
+              const isLastOption = index === multiChoiceOptions.length - 1;
+              
               return (
                 <TouchableOpacity
                   key={index}
                   style={[styles.multipleChoiceOption, isSelected && styles.multipleChoiceOptionSelected]}
-                  onPress={() => handleAnswer(item.id, optionKey)}
+                  onPress={() => {
+                    let newSelections = [...selectedOptions];
+                    
+                    if (isLastOptionExclusive && isLastOption) {
+                      // If selecting "none of the above", clear all others
+                      newSelections = isSelected ? [] : [index];
+                    } else if (isLastOptionExclusive && selectedOptions.includes(multiChoiceOptions.length - 1)) {
+                      // If "none of the above" is selected, replace it with this option
+                      newSelections = [index];
+                    } else if (isSelected) {
+                      // Deselect if already selected
+                      newSelections = newSelections.filter(i => i !== index);
+                    } else if (newSelections.length < maxSelections) {
+                      // Add if under max limit
+                      newSelections.push(index);
+                    } else {
+                      // Max reached, show alert
+                      Alert.alert('Limit', `En fazla ${maxSelections} seçim yapabilirsiniz.`);
+                    }
+                    
+                    handleAnswer(item.id, newSelections);
+                  }}
                 >
                   <Text style={[styles.multipleChoiceText, isSelected && styles.multipleChoiceTextSelected]}>
                     {option}
@@ -698,6 +880,13 @@ export default function NewFormsScreen({ navigation, route }: any) {
                 </TouchableOpacity>
               );
             })}
+            {(item.id === 'F3_SABOTAGE_PATTERNS' || item.id === 'F3_COPING_MECHANISMS') && (
+              <Text style={styles.selectionHint}>
+                {item.id === 'F3_COPING_MECHANISMS' 
+                  ? `(En fazla 4 seçim yapabilirsiniz. Son seçenek diğerlerini iptal eder.)`
+                  : `(En fazla 4 seçim yapabilirsiniz.)`}
+              </Text>
+            )}
           </View>
         );
 
@@ -862,9 +1051,12 @@ export default function NewFormsScreen({ navigation, route }: any) {
 
   const handleNext = async () => {
     // Check required fields (OpenText story questions are optional)
-    const requiredItems = items.filter(item => 
-      !(item.type === 'OpenText' && item.id.includes('STORY'))
-    );
+    const requiredItems = items.filter(item => {
+      // Skip conditional items that shouldn't be shown
+      if (!shouldShowItem(item)) return false;
+      // Skip optional open text story items
+      return !(item.type === 'OpenText' && item.id.includes('STORY'));
+    });
     
     const unansweredRequired = requiredItems.filter(item => {
       const answer = answers[item.id];
@@ -1065,7 +1257,7 @@ export default function NewFormsScreen({ navigation, route }: any) {
               </Text>
             </View>
             
-            {missingItems.map((item, index) => (
+            {missingItems.filter(item => shouldShowItem(item)).map((item, index) => (
               <View key={item.id} style={styles.missingItemContainer}>
                 <View style={styles.missingItemHeader}>
                   <Text style={styles.missingItemNumber}>
@@ -1090,6 +1282,9 @@ export default function NewFormsScreen({ navigation, route }: any) {
                 onPress={() => {
                   // Check if all missing items are now answered
                   const stillMissing = missingItems.filter(item => {
+                    // Skip conditional items that shouldn't be shown
+                    if (!shouldShowItem(item)) return false;
+                    
                     const answer = answers[item.id];
                     if (answer === undefined || answer === null || answer === '') return true;
                     if (Array.isArray(answer) && answer.length === 0) return true;
@@ -1203,7 +1398,7 @@ export default function NewFormsScreen({ navigation, route }: any) {
                 <Text style={styles.sectionDividerText}>{section}</Text>
               </View>
               {items
-                .filter(item => item.section === section)
+                .filter(item => item.section === section && shouldShowItem(item))
                 .map((item, index) => {
                   // Calculate question number within the form
                   let questionNumber = sectionStartNumber;
@@ -1470,7 +1665,31 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   openTextContainer: {
-    gap: 12,
+    width: '100%',
+  },
+  textInputWrapper: {
+    position: 'relative',
+    width: '100%',
+  },
+  textInputWithMic: {
+    paddingRight: 50,
+  },
+  micButtonInline: {
+    position: 'absolute',
+    right: 8,
+    bottom: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  micButtonInlineActive: {
+    backgroundColor: '#FCA5A5',
+  },
+  micIcon: {
+    fontSize: 18,
   },
   micButton: {
     backgroundColor: '#E5E7EB',
@@ -1809,6 +2028,12 @@ const styles = StyleSheet.create({
   },
   multipleChoiceTextSelected: {
     color: '#FFFFFF',
+  },
+  selectionHint: {
+    fontSize: 12,
+    color: '#718096',
+    fontStyle: 'italic',
+    marginTop: 8,
     fontWeight: '500',
   },
   errorContainer: {

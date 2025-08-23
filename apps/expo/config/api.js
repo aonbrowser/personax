@@ -1,14 +1,14 @@
-// Dynamic API URL based on hostname
+// API Configuration - Dynamic URL based on hostname
 const getApiUrl = () => {
   if (typeof window !== 'undefined' && window.location) {
     const hostname = window.location.hostname;
     
-    // Production - use relative paths for personax.app
+    // Production - use relative paths
     if (hostname === 'personax.app' || hostname === 'www.personax.app') {
-      return '';  // Empty string = use relative URLs (/v1/...)
+      return '';  // Empty string means use relative URLs
     }
     
-    // Local network access (e.g., 192.168.x.x)
+    // Local IP access (for testing from other devices)
     if (hostname && hostname !== 'localhost') {
       return `http://${hostname}:8080`;
     }
@@ -18,4 +18,4 @@ const getApiUrl = () => {
   return 'http://localhost:8080';
 };
 
-export const API_URL = getApiUrl();
+export const API_BASE_URL = getApiUrl();

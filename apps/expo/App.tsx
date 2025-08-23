@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Text, 
   View, 
@@ -12,11 +12,17 @@ import {
   Button,
   Image
 } from 'react-native';
+import * as Localization from 'expo-localization';
+
+// Config
+import { API_URL } from './config';
 
 // Images
 const profileImage = require('./assets/images/profile.jpg');
 const analysisImage = require('./assets/images/analysis.png');
 const newPersonAnalysisImage = require('./assets/images/new-person-analysis.png');
+const cogniCoachLogo = require('./assets/images/cogni-coach-logo.png');
+const cogniCoachIcon = require('./assets/images/cogni-coach-icon.png');
 
 // Screens
 import NewFormsScreen from './screens/NewFormsScreen';
@@ -27,8 +33,8 @@ import AnalysisResultScreen from './screens/AnalysisResultScreen';
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentScreen, setCurrentScreen] = useState('home');
-  const [email, setEmail] = useState('test@test.com');
-  const [password, setPassword] = useState('test123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [secretClicks, setSecretClicks] = useState(0);
   const [paymentParams, setPaymentParams] = useState<any>(null);
@@ -43,10 +49,98 @@ export default function App() {
   const [personAnalyses, setPersonAnalyses] = useState<string[]>([]);
   const [relationAnalyses, setRelationAnalyses] = useState<string[]>([]);
   const [chatMessage, setChatMessage] = useState('');
+  const [selectedLanguage, setSelectedLanguage] = useState('tr');
+  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [isRecordingChat, setIsRecordingChat] = useState(false);
+  const recognitionRef = useRef<any>(null);
 
   // Check for existing session on mount and handle URL routing
   useEffect(() => {
     checkAuthStatus();
+    
+    // Detect and set user language
+    const detectAndSetLanguage = async () => {
+      try {
+        // Check for saved preference first (works on all platforms)
+        let savedLang = null;
+        
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          savedLang = localStorage.getItem('userLanguage');
+        } else {
+          // For mobile, use AsyncStorage
+          try {
+            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+            savedLang = await AsyncStorage.getItem('userLanguage');
+          } catch (e) {
+            console.log('AsyncStorage not available');
+          }
+        }
+        
+        if (savedLang) {
+          setSelectedLanguage(savedLang);
+          return;
+        }
+        
+        // Auto-detect device/browser language
+        let detectedLangCode = 'en'; // Default fallback
+        
+        if (Platform.OS === 'web') {
+          // Web: Use browser language
+          const browserLang = navigator.language || (navigator as any).userLanguage || 'en';
+          detectedLangCode = browserLang;
+        } else {
+          // Mobile: Use Expo Localization
+          const locales = Localization.getLocales();
+          if (locales && locales.length > 0) {
+            detectedLangCode = locales[0].languageCode || 'en';
+            console.log('Mobile device locale:', locales[0]);
+          }
+        }
+        
+        // Map language codes to our supported languages
+        const langMap: { [key: string]: string } = {
+          'tr': 'tr', 'tr-TR': 'tr',
+          'en': 'en', 'en-US': 'en', 'en-GB': 'en',
+          'ar': 'ar', 'ar-SA': 'ar', 'ar-AE': 'ar', 'ar-EG': 'ar',
+          'es': 'es', 'es-ES': 'es', 'es-MX': 'es', 'es-AR': 'es',
+          'ru': 'ru', 'ru-RU': 'ru',
+          'de': 'de', 'de-DE': 'de', 'de-AT': 'de', 'de-CH': 'de',
+          'fr': 'fr', 'fr-FR': 'fr', 'fr-CA': 'fr', 'fr-BE': 'fr',
+          'it': 'it', 'it-IT': 'it',
+          'pt': 'pt', 'pt-BR': 'pt', 'pt-PT': 'pt',
+          'nl': 'nl', 'nl-NL': 'nl', 'nl-BE': 'nl',
+          'zh': 'zh', 'zh-CN': 'zh', 'zh-Hans': 'zh',
+          'zh-TW': 'zh-TW', 'zh-Hant': 'zh-TW', 'zh-HK': 'zh-TW',
+          'ja': 'ja', 'ja-JP': 'ja',
+          'ko': 'ko', 'ko-KR': 'ko',
+          'hi': 'hi', 'hi-IN': 'hi',
+        };
+        
+        // Extract the base language code
+        const detectedLang = langMap[detectedLangCode] || langMap[detectedLangCode.split('-')[0]] || 'en';
+        
+        console.log('Device/Browser language detected:', detectedLangCode, '-> Using:', detectedLang);
+        setSelectedLanguage(detectedLang);
+        
+        // Save the detected language
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          localStorage.setItem('userLanguage', detectedLang);
+        } else {
+          try {
+            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+            await AsyncStorage.setItem('userLanguage', detectedLang);
+          } catch (e) {
+            console.log('Could not save language preference');
+          }
+        }
+      } catch (error) {
+        console.error('Error detecting language:', error);
+        setSelectedLanguage('en'); // Fallback to English
+      }
+    };
+    
+    detectAndSetLanguage();
     
     // Check URL for stargate route (using hash routing)
     if (Platform.OS === 'web') {
@@ -141,10 +235,10 @@ export default function App() {
       const checkAnalyses = async () => {
         try {
           const userEmail = Platform.OS === 'web' ? 
-            localStorage.getItem('userEmail') || 'test@test.com' : 
-            'test@test.com';
+            localStorage.getItem('userEmail') || email || 'user@example.com' : 
+            email || 'user@example.com';
           
-          const response = await fetch(`http://localhost:8080/v1/user/analyses`, {
+          const response = await fetch(`${API_URL}/v1/user/analyses`, {
             headers: {
               'x-user-email': userEmail,
             },
@@ -210,16 +304,46 @@ export default function App() {
     }
   };
 
+  const handleLanguageChange = async (lang: string) => {
+    setSelectedLanguage(lang);
+    setShowLanguageMenu(false);
+    
+    // Save language preference
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      localStorage.setItem('userLanguage', lang);
+    } else {
+      // For mobile, use AsyncStorage
+      try {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        await AsyncStorage.setItem('userLanguage', lang);
+      } catch (e) {
+        console.log('Could not save language preference');
+      }
+    }
+  };
+
   const handleEmailSignIn = () => {
     console.log('Login attempt with:', email, password);
     
-    if (email === 'test@test.com' && password === 'test123') {
+    // Email validation
+    if (!email || !password) {
+      const message = 'Lütfen email ve şifre girin';
+      if (Platform.OS === 'web') {
+        alert(`Uyarı\n\n${message}`);
+      } else {
+        Alert.alert('Uyarı', message);
+      }
+      return;
+    }
+    
+    // For demo purposes, accept any email/password
+    if (email && password) {
       setIsAuthenticated(true);
       saveAuthSession();
       console.log('Login successful');
     } else {
       console.log('Invalid credentials, showing alert...');
-      const message = 'Demo için lütfen test@test.com / test123 kullanın';
+      const message = 'Geçersiz email veya şifre';
       
       if (Platform.OS === 'web') {
         // Web'de alert() kullan
@@ -239,9 +363,58 @@ export default function App() {
   const handleLogout = () => {
     setIsAuthenticated(false);
     setCurrentScreen('home');
+    setShowProfileMenu(false);
+    setEmail('');
+    setPassword('');
     if (Platform.OS === 'web') {
       localStorage.removeItem('relateCoachAuth');
     }
+  };
+
+  // Speech recognition functions for chat
+  const startChatRecognition = () => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'tr-TR';
+        recognition.continuous = false; // Changed to false to prevent duplicates
+        recognition.interimResults = false; // Changed to false for final results only
+        
+        recognition.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript;
+          setChatMessage(prevText => {
+            // Add space if there's existing text
+            return prevText ? prevText + ' ' + transcript : transcript;
+          });
+        };
+        
+        recognition.onerror = (event: any) => {
+          console.error('Speech recognition error:', event.error);
+          setIsRecordingChat(false);
+        };
+        
+        recognition.onend = () => {
+          setIsRecordingChat(false);
+          // Restart if still holding the button
+          if (isRecordingChat) {
+            recognition.start();
+          }
+        };
+        
+        recognitionRef.current = recognition;
+        recognition.start();
+        setIsRecordingChat(true);
+      }
+    }
+  };
+
+  const stopChatRecognition = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+    setIsRecordingChat(false);
   };
 
   const handleAppleSignIn = () => {
@@ -548,7 +721,7 @@ export default function App() {
         const storageKey = `s2r_${relation.key}_${personName}`;
         const savedAnswers = localStorage.getItem(storageKey);
         
-        fetch(`http://localhost:8080/v1/items/by-form?form=S2R_${relation.key}`)
+        fetch(`${API_URL}/v1/items/by-form?form=S2R_${relation.key}`)
           .then(r => r.json())
           .then(data => {
             const loadedItems = data.items || [];
@@ -720,7 +893,7 @@ export default function App() {
         };
         
         // Send to API
-        const response = await fetch('http://localhost:8080/v1/analyze/other', { 
+        const response = await fetch(`${API_URL}/v1/analyze/other`, { 
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -773,7 +946,7 @@ export default function App() {
             </TouchableOpacity>
             <View style={styles.headerTitleWithIcon}>
               <Image 
-                source={require('./assets/cogni-coach-icon.png')} 
+                source={cogniCoachIcon} 
                 style={styles.headerIcon}
                 resizeMode="contain"
               />
@@ -1000,7 +1173,7 @@ export default function App() {
     
     useEffect(() => {
       setIsLoading(true);
-      fetch('http://localhost:8080/v1/items/by-form?form=S3_self')
+      fetch(`${API_URL}/v1/items/by-form?form=S3_self`)
         .then(r => r.json())
         .then(data => {
           setItems(data.items || []);
@@ -1056,7 +1229,7 @@ export default function App() {
             </TouchableOpacity>
             <View style={styles.headerTitleWithIcon}>
               <Image 
-                source={require('./assets/cogni-coach-icon.png')} 
+                source={cogniCoachIcon} 
                 style={styles.headerIcon}
                 resizeMode="contain"
               />
@@ -1120,7 +1293,7 @@ export default function App() {
     useEffect(() => {
       setIsLoading(true);
       setAnswers({});
-      fetch(`http://localhost:8080/v1/items/by-form?form=${domain}`)
+      fetch(`${API_URL}/v1/items/by-form?form=${domain}`)
         .then(r => r.json())
         .then(data => {
           setItems(data.items || []);
@@ -1177,7 +1350,7 @@ export default function App() {
             </TouchableOpacity>
             <View style={styles.headerTitleWithIcon}>
               <Image 
-                source={require('./assets/cogni-coach-icon.png')} 
+                source={cogniCoachIcon} 
                 style={styles.headerIcon}
                 resizeMode="contain"
               />
@@ -1254,7 +1427,7 @@ export default function App() {
           </TouchableOpacity>
           <View style={styles.headerTitleWithIcon}>
             <Image 
-              source={require('./assets/cogni-coach-icon.png')} 
+              source={cogniCoachIcon} 
               style={styles.headerIcon}
               resizeMode="contain"
             />
@@ -1316,7 +1489,7 @@ export default function App() {
           </TouchableOpacity>
           <View style={styles.headerTitleWithIcon}>
             <Image 
-              source={require('./assets/cogni-coach-icon.png')} 
+              source={cogniCoachIcon} 
               style={styles.headerIcon}
               resizeMode="contain"
             />
@@ -1542,15 +1715,74 @@ export default function App() {
               }}
             >
               <Image 
-                source={require('./assets/cogni-coach-logo.png')} 
+                source={cogniCoachLogo} 
                 style={styles.homeLogo}
                 resizeMode="contain"
               />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.profileButton} onPress={handleLogout}>
-              <Image source={profileImage} style={styles.profileImage} />
-            </TouchableOpacity>
+            <View style={styles.headerRight}>
+              <TouchableOpacity 
+                style={styles.languageButton} 
+                onPress={() => setShowLanguageMenu(!showLanguageMenu)}
+              >
+                <Text style={styles.languageButtonText}>🌐 {selectedLanguage.toUpperCase()}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.profileButton} onPress={() => setShowProfileMenu(!showProfileMenu)}>
+                <Image source={profileImage} style={styles.profileImage} />
+              </TouchableOpacity>
+            </View>
           </View>
+          
+          {/* Overlay to close menus when clicking outside */}
+          {(showProfileMenu || showLanguageMenu) && (
+            <TouchableOpacity 
+              style={styles.menuOverlay} 
+              activeOpacity={1}
+              onPress={() => {
+                setShowProfileMenu(false);
+                setShowLanguageMenu(false);
+              }}
+            />
+          )}
+          
+          {/* Profile Dropdown Menu */}
+          {showProfileMenu && (
+            <View style={styles.profileMenu}>
+              <View style={styles.profileMenuHeader}>
+                <Text style={styles.profileMenuEmail}>{email}</Text>
+              </View>
+              <TouchableOpacity style={styles.profileMenuItem} onPress={handleLogout}>
+                <Text style={styles.profileMenuItemText}>🚪 Çıkış Yap</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          
+          {/* Language Dropdown Menu */}
+          {showLanguageMenu && (
+            <View style={styles.languageMenu}>
+              <TouchableOpacity style={styles.languageOption} onPress={() => handleLanguageChange('tr')}>
+                <Text style={styles.languageOptionText}>🇹🇷 Türkçe</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.languageOption} onPress={() => handleLanguageChange('en')}>
+                <Text style={styles.languageOptionText}>🇬🇧 English</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.languageOption} onPress={() => handleLanguageChange('ar')}>
+                <Text style={styles.languageOptionText}>🇸🇦 العربية</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.languageOption} onPress={() => handleLanguageChange('es')}>
+                <Text style={styles.languageOptionText}>🇪🇸 Español</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.languageOption} onPress={() => handleLanguageChange('ru')}>
+                <Text style={styles.languageOptionText}>🇷🇺 Русский</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.languageOption} onPress={() => handleLanguageChange('de')}>
+                <Text style={styles.languageOptionText}>🇩🇪 Deutsch</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.languageOption} onPress={() => handleLanguageChange('fr')}>
+                <Text style={styles.languageOptionText}>🇫🇷 Français</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           <ScrollView showsVerticalScrollIndicator={false} style={styles.content}>
             {/* AI Chat Window */}
@@ -1568,6 +1800,24 @@ export default function App() {
                   onChangeText={setChatMessage}
                   editable={hasSelfAnalysis}
                 />
+                {Platform.OS === 'web' && hasSelfAnalysis && 
+                  typeof window !== 'undefined' && 
+                  ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) && (
+                  <TouchableOpacity 
+                    style={[styles.micButtonChat, isRecordingChat && styles.micButtonChatActive]}
+                    onPress={() => {
+                      if (isRecordingChat) {
+                        stopChatRecognition();
+                      } else {
+                        startChatRecognition();
+                      }
+                    }}
+                  >
+                    <Text style={styles.micIconChat}>
+                      {isRecordingChat ? '🔴' : '🎤'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity 
                   style={[
                     styles.aiChatSendButton, 
@@ -1748,11 +1998,16 @@ export default function App() {
             {/* Social Login */}
             <View style={styles.socialButtons}>
               <TouchableOpacity 
-                style={styles.socialButton}
+                style={styles.googleButton}
                 onPress={handleGoogleSignIn}
               >
-                <Text style={styles.socialIcon}>G</Text>
-                <Text style={styles.socialButtonText}>Google ile devam et</Text>
+                <View style={styles.googleIconContainer}>
+                  <Image 
+                    source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
+                    style={styles.googleIcon}
+                  />
+                </View>
+                <Text style={styles.googleButtonText}>Google ile giriş yap</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -1766,9 +2021,6 @@ export default function App() {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.demoNotice}>
-              Demo: test@test.com / test123
-            </Text>
           </View>
         </View>
       </ScrollView>
@@ -1879,6 +2131,91 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 3,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  languageButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 3,
+  },
+  languageButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  languageMenu: {
+    position: 'absolute',
+    top: 70,
+    right: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 1000,
+    minWidth: 150,
+  },
+  languageOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  languageOptionText: {
+    fontSize: 14,
+    color: '#1E293B',
+  },
+  profileMenu: {
+    position: 'absolute',
+    top: 70,
+    right: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 1000,
+    minWidth: 200,
+  },
+  profileMenuHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    backgroundColor: '#F8FAFC',
+  },
+  profileMenuEmail: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  profileMenuItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  profileMenuItemText: {
+    fontSize: 14,
+    color: '#1E293B',
+    fontWeight: '500',
+  },
+  menuOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 999,
+  },
 
   // Content
   content: {
@@ -1914,6 +2251,23 @@ const styles = StyleSheet.create({
   aiChatTextAreaDisabled: {
     backgroundColor: '#F8FAFC',
     opacity: 0.9,
+  },
+  micButtonChat: {
+    position: 'absolute',
+    right: 55,
+    bottom: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  micButtonChatActive: {
+    backgroundColor: '#FCA5A5',
+  },
+  micIconChat: {
+    fontSize: 18,
   },
   aiChatSendButton: {
     position: 'absolute',
@@ -2247,6 +2601,47 @@ const styles = StyleSheet.create({
   },
   socialButtons: {
     gap: 12,
+  },
+  googleButton: {
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: '#DADCE0',
+    paddingHorizontal: 12,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
+      }
+    }),
+  },
+  googleIconContainer: {
+    width: 20,
+    height: 20,
+    marginRight: 12,
+  },
+  googleIcon: {
+    width: 20,
+    height: 20,
+  },
+  googleButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#3C4043',
+    fontFamily: Platform.select({ 
+      web: '"Google Sans", Roboto, sans-serif',
+      default: 'System'
+    }),
   },
   socialButton: {
     height: 48,

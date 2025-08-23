@@ -9,10 +9,11 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  TextInput,
 } from 'react-native';
 import InAppPurchaseService from '../services/InAppPurchaseService';
 
-const API_URL = 'http://localhost:8080';
+import { API_URL } from '../config';
 
 interface PaymentCheckScreenProps {
   navigation: any;
@@ -36,6 +37,9 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [pricingOptions, setPricingOptions] = useState<any>(null);
   const [selectedOption, setSelectedOption] = useState<string>('');
+  const [couponCode, setCouponCode] = useState<string>('');
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [checkingCoupon, setCheckingCoupon] = useState(false);
   const [storedFormData] = useState(() => {
     // Check if we have new form structure (form1Data, form2Data, form3Data)
     if (form1Data || form2Data || form3Data) {
@@ -404,6 +408,51 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
     }
   };
 
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      Alert.alert('Hata', 'Lütfen bir kupon kodu girin');
+      return;
+    }
+
+    setCheckingCoupon(true);
+    try {
+      const response = await fetch(`${API_URL}/v1/payment/validate-coupon`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-email': userEmail,
+        },
+        body: JSON.stringify({ 
+          couponCode: couponCode.trim(),
+          serviceType 
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok && data.valid) {
+        setAppliedCoupon(data.coupon);
+        Alert.alert('Başarılı', data.message || 'Kupon kodu uygulandı!');
+        
+        // If coupon provides free access, proceed with analysis
+        if (data.coupon.type === 'free_subscription') {
+          // Wait a moment for the backend to process the subscription
+          setTimeout(() => {
+            checkUserLimits(); // Re-check limits to get the new subscription
+          }, 1000);
+        }
+      } else {
+        Alert.alert('Hata', data.message || 'Geçersiz kupon kodu');
+        setAppliedCoupon(null);
+      }
+    } catch (error) {
+      console.error('Coupon validation error:', error);
+      Alert.alert('Hata', 'Kupon kodu kontrol edilemedi');
+    } finally {
+      setCheckingCoupon(false);
+    }
+  };
+
   const handlePurchaseSubscription = async (planId: string) => {
     setLoading(true);
     try {
@@ -556,6 +605,44 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
       </View>
 
       <ScrollView style={styles.content}>
+        {/* Coupon Code Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Kupon Kodu</Text>
+          <Text style={styles.sectionSubtitle}>
+            Kupon kodunuz varsa aşağıya girin
+          </Text>
+          <View style={styles.couponContainer}>
+            <TextInput
+              style={styles.couponInput}
+              placeholder="Kupon kodunu girin"
+              value={couponCode}
+              onChangeText={setCouponCode}
+              autoCapitalize="characters"
+              editable={!appliedCoupon}
+            />
+            <TouchableOpacity
+              style={[styles.couponButton, appliedCoupon && styles.couponButtonDisabled]}
+              onPress={handleApplyCoupon}
+              disabled={checkingCoupon || appliedCoupon}
+            >
+              {checkingCoupon ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.couponButtonText}>
+                  {appliedCoupon ? 'Uygulandı ✓' : 'Uygula'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+          {appliedCoupon && (
+            <View style={styles.couponSuccessBox}>
+              <Text style={styles.couponSuccessText}>
+                ✓ {appliedCoupon.description || 'Kupon başarıyla uygulandı'}
+              </Text>
+            </View>
+          )}
+        </View>
+
         {/* Subscription Plans */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Abonelik Paketleri</Text>
@@ -823,5 +910,48 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'center',
     padding: 20,
+  },
+  couponContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  couponInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 3,
+    padding: 12,
+    fontSize: 14,
+    backgroundColor: '#FFFFFF',
+    marginRight: 10,
+  },
+  couponButton: {
+    backgroundColor: 'rgb(96, 187, 202)',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 3,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  couponButtonDisabled: {
+    backgroundColor: '#94A3B8',
+  },
+  couponButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  couponSuccessBox: {
+    backgroundColor: '#D1FAE5',
+    padding: 12,
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: '#34D399',
+  },
+  couponSuccessText: {
+    color: '#047857',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

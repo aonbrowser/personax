@@ -422,6 +422,148 @@ router.post('/validate-purchase', async (req: Request, res: Response) => {
   }
 });
 
+// Validate and apply coupon code
+router.post('/validate-coupon', async (req: Request, res: Response) => {
+  const userEmail = req.header('x-user-email') || 'test@test.com';
+  const { couponCode, serviceType } = req.body;
+  
+  if (!couponCode) {
+    return res.status(400).json({ error: 'couponCode is required' });
+  }
+  
+  try {
+    // Get user ID from email
+    const userResult = await pool.query(`
+      SELECT id FROM users WHERE email = $1
+    `, [userEmail]);
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const userId = userResult.rows[0].id;
+    
+    // Check if coupon exists and is valid
+    const couponResult = await pool.query(`
+      SELECT * FROM coupons 
+      WHERE code = $1 
+        AND is_active = true 
+        AND (valid_from IS NULL OR valid_from <= NOW())
+        AND (valid_until IS NULL OR valid_until >= NOW())
+        AND (max_uses IS NULL OR uses_count < max_uses)
+    `, [couponCode.toUpperCase()]);
+    
+    if (couponResult.rows.length === 0) {
+      return res.status(400).json({ 
+        valid: false,
+        message: 'Geçersiz veya süresi dolmuş kupon kodu' 
+      });
+    }
+    
+    const coupon = couponResult.rows[0];
+    
+    // Check if user has already used this coupon (for one-time use coupons)
+    if (coupon.one_time_per_user) {
+      const usageResult = await pool.query(`
+        SELECT * FROM coupon_usage 
+        WHERE coupon_id = $1 AND user_id = $2
+      `, [coupon.id, userId]);
+      
+      if (usageResult.rows.length > 0) {
+        return res.status(400).json({ 
+          valid: false,
+          message: 'Bu kuponu daha önce kullandınız' 
+        });
+      }
+    }
+    
+    // Apply coupon based on type
+    if (coupon.type === 'free_subscription') {
+      // Get the plan details
+      const planResult = await pool.query(`
+        SELECT * FROM subscription_plans WHERE id = $1
+      `, [coupon.plan_id || 'standard']);
+      
+      if (planResult.rows.length === 0) {
+        return res.status(500).json({ error: 'Subscription plan not found' });
+      }
+      
+      const plan = planResult.rows[0];
+      const durationMonths = coupon.duration_months || 1;
+      const endDate = new Date();
+      endDate.setMonth(endDate.getMonth() + durationMonths);
+      
+      // Create subscription for user
+      const subResult = await pool.query(`
+        INSERT INTO user_subscriptions (
+          user_id, 
+          plan_id, 
+          start_date, 
+          end_date, 
+          status,
+          credits_remaining,
+          coupon_id
+        ) VALUES ($1, $2, NOW(), $3, 'active', $4, $5)
+        RETURNING *
+      `, [
+        userId, 
+        coupon.plan_id || 'standard', 
+        endDate,
+        JSON.stringify({
+          self_reanalysis: plan.self_reanalysis_limit,
+          other_analysis: plan.other_analysis_limit,
+          relationship_analysis: plan.relationship_analysis_limit,
+          coaching_tokens: plan.coaching_tokens_limit
+        }),
+        coupon.id
+      ]);
+      
+      // Record coupon usage
+      await pool.query(`
+        INSERT INTO coupon_usage (coupon_id, user_id, used_at)
+        VALUES ($1, $2, NOW())
+      `, [coupon.id, userId]);
+      
+      // Increment coupon usage count
+      await pool.query(`
+        UPDATE coupons 
+        SET uses_count = uses_count + 1 
+        WHERE id = $1
+      `, [coupon.id]);
+      
+      res.json({
+        valid: true,
+        message: `${durationMonths} aylık ${plan.name} paketi başarıyla eklendi!`,
+        coupon: {
+          type: coupon.type,
+          description: coupon.description,
+          plan_name: plan.name,
+          duration_months: durationMonths
+        }
+      });
+    } else if (coupon.type === 'discount') {
+      // For discount coupons, just validate and return the discount info
+      res.json({
+        valid: true,
+        message: `%${coupon.discount_percent} indirim uygulandı`,
+        coupon: {
+          type: coupon.type,
+          discount_percent: coupon.discount_percent,
+          description: coupon.description
+        }
+      });
+    } else {
+      res.status(400).json({ 
+        valid: false,
+        message: 'Bilinmeyen kupon tipi' 
+      });
+    }
+  } catch (error) {
+    console.error('Error validating coupon:', error);
+    res.status(500).json({ error: 'Kupon doğrulanamadı' });
+  }
+});
+
 // Use credits from subscription
 router.post('/use-credits', async (req: Request, res: Response) => {
   const userEmail = req.header('x-user-email') || 'test@test.com';

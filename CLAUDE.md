@@ -62,6 +62,19 @@ On 17 Aug 2025, wrong CSV file (`testbank.csv`) was imported instead of the corr
   3. `s3_type_check.csv` (12 items)
   4. `s4_values_boundaries.csv` (80 items)
 
+## ⚠️ CRITICAL: Form Names Clarification ⚠️
+
+**MAIN USER FORMS (Kendi Analizim Flow):**
+- **Form 1 (Tanışalım)** - Database: `form1_tanisalim` - Profile questions
+- **Form 2 (Kişilik & Mizaç)** - Database: `form2_kisilik` - Personality questions  
+- **Form 3 (Davranış & Anlatı)** - Database: `form3_davranis` - Behavior questions
+
+**Important Notes:**
+- These are accessed via: Kendi Analizim > Form 1 > Form 2 > Form 3
+- Question 31 in Form 3: "Belirlediğiniz hedeflere... engelleyen davranış kalıplarınız..." (F3_SABOTAGE_AWARENESS)
+- Question 32 in Form 3: "Bu engelleyici davranışlar..." (F3_SABOTAGE_PATTERNS) - CONDITIONAL on Q31 != "Hayır"
+- Do NOT confuse with S0, S1, S2, S3, S4 forms which are different
+
 ## Project Overview
 
 This is a **Relate Coach** global multi-language platform combining:

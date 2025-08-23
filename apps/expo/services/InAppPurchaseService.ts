@@ -14,6 +14,7 @@ import RNIap, {
   requestSubscription,
   requestPurchase
 } from 'react-native-iap';
+import { API_URL } from '../config';
 
 // Product IDs for different platforms
 const PRODUCT_IDS = {
@@ -205,7 +206,7 @@ class InAppPurchaseService implements IAPService {
   async validatePurchase(purchase: any): Promise<boolean> {
     try {
       // Send purchase receipt to backend for validation
-      const response = await fetch('http://localhost:8080/v1/payment/validate-purchase', {
+      const response = await fetch(`${API_URL}/v1/payment/validate-purchase`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

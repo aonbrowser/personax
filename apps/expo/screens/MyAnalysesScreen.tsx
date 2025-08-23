@@ -14,7 +14,7 @@ import {
   Image,
 } from 'react-native';
 
-const API_URL = 'http://localhost:8080';
+import { API_URL } from '../config';
 
 interface AnalysisResult {
   id: string;
