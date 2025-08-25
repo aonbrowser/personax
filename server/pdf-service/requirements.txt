@@ -1,0 +1,5 @@
+plutoprint
+flask
+flask-cors
+markdown2
+beautifulsoup4

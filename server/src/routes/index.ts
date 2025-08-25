@@ -6,6 +6,24 @@ export const router = Router();
 
 router.get('/health', (_req, res)=> res.json({ ok: true }));
 
+// Check if user has credits for a service
+router.post('/user/check-credits', async (req, res) => {
+  const userEmail = req.header('x-user-email');
+  
+  if (!userEmail || !userEmail.includes('@')) {
+    return res.status(401).json({ error: 'Unauthorized - email required' });
+  }
+  const { serviceType } = req.body;
+  
+  // For now, always return true - you can implement actual subscription logic later
+  // This should check the user's subscription status, credits, etc.
+  res.json({
+    hasCredits: true,
+    creditsRemaining: 100, // Example
+    subscriptionType: 'premium', // Example
+  });
+});
+
 // Get items by form endpoint
 router.get('/items/by-form', async (req, res) => {
   const form = String(req.query.form || '').trim();
@@ -37,8 +55,13 @@ router.get('/items/by-form', async (req, res) => {
 router.post('/analyze/self', async (req, res) => {
   const lang = (req.header('x-user-lang') || 'en').toLowerCase();
   const userIdHeader = req.header('x-user-id');
-  const userEmail = req.header('x-user-email') || 'test@test.com';
+  const userEmail = req.header('x-user-email');
   const targetId = req.body.targetId || 'self';
+  
+  // CRITICAL: Require valid email
+  if (!userEmail || !userEmail.includes('@')) {
+    return res.status(401).json({ error: 'Unauthorized - valid email required' });
+  }
   
   // LOG: Print received data
   console.log('\n=== RECEIVED AT BACKEND ===');
@@ -136,9 +159,11 @@ router.post('/analyze/self', async (req, res) => {
       userId = newUserResult.rows[0].id;
     }
   } else {
-    // Use test user as fallback
-    const userResult = await pool.query('SELECT id FROM users WHERE email = $1', ['test@test.com']);
-    userId = userResult.rows[0].id;
+    // CRITICAL: No fallback to test user - this is a security risk
+    return res.status(401).json({ 
+      error: 'Unauthorized - valid email required',
+      message: 'User email is required for analysis'
+    });
   }
   
   // Log the exact data being passed to pipeline
@@ -194,18 +219,23 @@ router.get('/user/usage', async (req, res) => {
 
 // Get user's analyses
 router.get('/user/analyses', async (req, res) => {
-  const userEmail = req.header('x-user-email') || 'test@test.com';
+  const userEmail = req.header('x-user-email');
+  
+  // CRITICAL SECURITY: Never use default email
+  if (!userEmail || !userEmail.includes('@')) {
+    console.error('SECURITY: No valid email provided for analyses request');
+    return res.json({ analyses: [] });
+  }
   
   // Get user ID from email
   let userId = null;
-  if (userEmail && userEmail.includes('@')) {
-    const userResult = await pool.query('SELECT id FROM users WHERE email = $1', [userEmail]);
-    if (userResult.rows.length > 0) {
-      userId = userResult.rows[0].id;
-    }
+  const userResult = await pool.query('SELECT id FROM users WHERE email = $1', [userEmail]);
+  if (userResult.rows.length > 0) {
+    userId = userResult.rows[0].id;
   }
   
   if (!userId) {
+    console.log('User not found for email:', userEmail);
     return res.json({ analyses: [] });
   }
   
@@ -239,8 +269,100 @@ router.get('/user/analyses', async (req, res) => {
 });
 
 // Delete analysis
+// Generate PDF endpoint
+router.post('/generate-pdf', async (req, res) => {
+  const { markdown } = req.body;
+  
+  if (!markdown) {
+    return res.status(400).json({ error: 'Markdown content is required' });
+  }
+  
+  try {
+    // Call Python PDF service
+    const response = await fetch('http://localhost:5000/generate-pdf', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ markdown }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('PDF generation failed');
+    }
+    
+    const result = await response.json();
+    
+    if (result.success && result.pdf) {
+      // Return PDF as base64
+      res.json({
+        success: true,
+        pdf: result.pdf,
+        filename: result.filename
+      });
+    } else {
+      throw new Error(result.error || 'PDF generation failed');
+    }
+  } catch (error) {
+    console.error('PDF generation error:', error);
+    res.status(500).json({ 
+      error: 'PDF generation failed',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// SECURE: Get single analysis result with user verification
+router.get('/user/analyses/:id', async (req, res) => {
+  const userEmail = req.header('x-user-email');
+  const analysisId = req.params.id;
+  
+  // Validate email
+  if (!userEmail || !userEmail.includes('@')) {
+    return res.status(401).json({ error: 'Unauthorized - invalid email' });
+  }
+  
+  // Validate UUID format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(analysisId)) {
+    return res.status(400).json({ error: 'Invalid analysis ID format' });
+  }
+  
+  try {
+    // Get user ID from email
+    const userResult = await pool.query('SELECT id FROM users WHERE email = $1', [userEmail]);
+    if (userResult.rows.length === 0) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+    
+    const userId = userResult.rows[0].id;
+    
+    // CRITICAL: Verify that this analysis belongs to this user
+    const result = await pool.query(
+      `SELECT id, analysis_type, status, result_markdown, result_blocks, error_message,
+              created_at, completed_at, form1_data, form2_data, form3_data
+       FROM analysis_results 
+       WHERE id = $1 AND user_id = $2`,
+      [analysisId, userId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Analysis not found or unauthorized' });
+    }
+    
+    res.json({ analysis: result.rows[0] });
+  } catch (error) {
+    console.error('Error fetching analysis:', error);
+    res.status(500).json({ error: 'Failed to fetch analysis' });
+  }
+});
+
 router.delete('/user/analyses/:id', async (req, res) => {
-  const userEmail = req.header('x-user-email') || 'test@test.com';
+  const userEmail = req.header('x-user-email');
+  
+  if (!userEmail || !userEmail.includes('@')) {
+    return res.status(401).json({ error: 'Unauthorized - email required' });
+  }
   const analysisId = req.params.id;
   
   // Validate UUID format
@@ -282,7 +404,11 @@ router.delete('/user/analyses/:id', async (req, res) => {
 
 // Retry analysis
 router.post('/analyze/retry', async (req, res) => {
-  const userEmail = req.header('x-user-email') || 'test@test.com';
+  const userEmail = req.header('x-user-email');
+  
+  if (!userEmail || !userEmail.includes('@')) {
+    return res.status(401).json({ error: 'Unauthorized - email required' });
+  }
   const { analysisId } = req.body;
   
   if (!analysisId) {

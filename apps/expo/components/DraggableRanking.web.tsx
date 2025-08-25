@@ -37,10 +37,8 @@ export default function DraggableRanking({ values, currentRanking, onRankingChan
   const handleTouchStart = (e: React.TouchEvent, valueKey: string, fromIndex?: number) => {
     e.stopPropagation();
     
-    // Prevent default immediately
-    if (e.cancelable) {
-      e.preventDefault();
-    }
+    // Prevent default immediately to stop scrolling
+    e.preventDefault();
     
     setTouchItem(valueKey);
     setDraggedItem(valueKey);
@@ -53,11 +51,21 @@ export default function DraggableRanking({ values, currentRanking, onRankingChan
       container.classList.add('touch-dragging');
     }
     
-    // Prevent all scrolling
+    // Store current scroll position
+    const scrollY = window.scrollY;
+    const scrollX = window.scrollX;
+    
+    // Prevent all scrolling but maintain position
     document.body.style.overflow = 'hidden';
     document.body.style.position = 'fixed';
     document.body.style.width = '100%';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = `-${scrollX}px`;
     document.body.style.touchAction = 'none';
+    
+    // Store scroll position for restoration
+    document.body.dataset.scrollY = scrollY.toString();
+    document.body.dataset.scrollX = scrollX.toString();
     
     // Add global touch move listener
     document.addEventListener('touchmove', preventDefaultTouch, { passive: false });
@@ -75,10 +83,8 @@ export default function DraggableRanking({ values, currentRanking, onRankingChan
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!touchItem) return;
     
-    // Always prevent default
-    if (e.cancelable) {
-      e.preventDefault();
-    }
+    // Always prevent default to stop scrolling
+    e.preventDefault();
     e.stopPropagation();
     
     const touch = e.touches[0];
@@ -161,11 +167,23 @@ export default function DraggableRanking({ values, currentRanking, onRankingChan
       container.classList.remove('touch-dragging');
     }
     
-    // Re-enable body scrolling
+    // Re-enable body scrolling and restore position
+    const scrollY = parseInt(document.body.dataset.scrollY || '0');
+    const scrollX = parseInt(document.body.dataset.scrollX || '0');
+    
     document.body.style.overflow = '';
     document.body.style.position = '';
     document.body.style.width = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
     document.body.style.touchAction = '';
+    
+    // Restore scroll position
+    window.scrollTo(scrollX, scrollY);
+    
+    // Clean up data attributes
+    delete document.body.dataset.scrollY;
+    delete document.body.dataset.scrollX;
     
     // Remove global touch move listener
     document.removeEventListener('touchmove', preventDefaultTouch);

@@ -28,17 +28,25 @@ interface AnalysisResult {
   s1_data?: any;
 }
 
-export default function MyAnalysesScreen({ navigation }: any) {
+export default function MyAnalysesScreen({ navigation, userEmail: propUserEmail }: any) {
   const [analyses, setAnalyses] = useState<AnalysisResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [userEmail, setUserEmail] = useState('test@test.com');
+  // CRITICAL: Never default to test@test.com - this is a security issue!
+  const [userEmail, setUserEmail] = useState(propUserEmail || '');
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [analysisToDelete, setAnalysisToDelete] = useState<AnalysisResult | null>(null);
 
   useEffect(() => {
-    loadUserEmail();
-  }, []);
+    // CRITICAL: Only use prop email, never load from localStorage (security)
+    if (!propUserEmail) {
+      console.error('CRITICAL ERROR: No user email provided to MyAnalysesScreen!');
+      setAnalyses([]); // Clear any existing analyses
+      setLoading(false);
+    } else {
+      setUserEmail(propUserEmail);
+    }
+  }, [propUserEmail]);
 
   useEffect(() => {
     if (userEmail) {
@@ -66,13 +74,23 @@ export default function MyAnalysesScreen({ navigation }: any) {
   }, [analyses]);
 
   const loadUserEmail = () => {
-    if (Platform.OS === 'web') {
-      const email = localStorage.getItem('userEmail');
-      if (email) setUserEmail(email);
+    // SECURITY: Don't load from localStorage, use prop email only
+    // This prevents cross-user data access
+    if (!propUserEmail) {
+      console.error('SECURITY WARNING: No user email provided to MyAnalysesScreen');
     }
   };
 
   const loadAnalyses = async () => {
+    console.log('=== LOADING ANALYSES ===');
+    console.log('Current userEmail:', userEmail);
+    console.log('PropUserEmail:', propUserEmail);
+    
+    if (!userEmail || userEmail === 'test@test.com') {
+      console.error('CRITICAL: Invalid or test email being used!');
+      console.trace('Invalid email trace');
+    }
+    
     return new Promise((resolve) => {
       const xhr = new XMLHttpRequest();
       xhr.open('GET', `${API_URL}/v1/user/analyses`);
@@ -165,6 +183,7 @@ export default function MyAnalysesScreen({ navigation }: any) {
 
   const viewAnalysis = (analysis: AnalysisResult) => {
     console.log('Viewing analysis:', analysis.id);
+    console.log('Current user email:', userEmail);
     console.log('Result markdown exists:', !!analysis.result_markdown);
     console.log('Result markdown length:', analysis.result_markdown?.length || 0);
     
@@ -173,9 +192,12 @@ export default function MyAnalysesScreen({ navigation }: any) {
       return;
     }
     
+    // CRITICAL: Pass both analysis data and user email for verification
     navigation.navigate('AnalysisResult', { 
+      analysisId: analysis.id,
       markdown: analysis.result_markdown,
-      analysisType: analysis.analysis_type
+      analysisType: analysis.analysis_type,
+      userEmail: userEmail // Pass current user email for verification
     });
   };
 

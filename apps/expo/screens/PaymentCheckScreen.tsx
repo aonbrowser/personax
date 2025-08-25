@@ -20,6 +20,7 @@ interface PaymentCheckScreenProps {
   route: {
     params: {
       serviceType: 'self_analysis' | 'other_analysis' | 'relationship_analysis' | 'coaching';
+      userEmail?: string;
       formData?: any;
       form1Data?: any;
       form2Data?: any;
@@ -30,7 +31,7 @@ interface PaymentCheckScreenProps {
 }
 
 export default function PaymentCheckScreen({ navigation, route }: PaymentCheckScreenProps) {
-  const { serviceType, formData, form1Data, form2Data, form3Data, onComplete } = route.params;
+  const { serviceType, formData, form1Data, form2Data, form3Data, onComplete, userEmail: routeEmail } = route.params;
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasCredit, setHasCredit] = useState(false);
@@ -41,6 +42,11 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [checkingCoupon, setCheckingCoupon] = useState(false);
   const [storedFormData] = useState(() => {
+    console.log('=== INITIALIZING STORED FORM DATA ===');
+    console.log('form1Data from params:', form1Data);
+    console.log('form2Data from params:', form2Data);
+    console.log('form3Data from params:', form3Data);
+    
     // Check if we have new form structure (form1Data, form2Data, form3Data)
     if (form1Data || form2Data || form3Data) {
       const combinedData = {
@@ -81,16 +87,20 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
     console.log('WARNING: No data in localStorage, checking route params');
     return formData || {};
   });
-  const userEmail = 'test@test.com'; // Get from auth context in real app
+  const userEmail = routeEmail || 'test@test.com'; // Use email from route params
 
   // LOG: Check what formData we received
   console.log('=== PAYMENTCHECK RECEIVED ===');
+  console.log('User Email:', userEmail);
   console.log('ServiceType:', serviceType);
   console.log('StoredFormData exists:', !!storedFormData);
   console.log('StoredFormData keys:', Object.keys(storedFormData));
   if (storedFormData && Object.keys(storedFormData).length > 0) {
     console.log('FormData s0 keys:', storedFormData.s0 ? Object.keys(storedFormData.s0).length + ' keys' : 'NO S0');
     console.log('FormData s1 keys:', storedFormData.s1 ? Object.keys(storedFormData.s1).length + ' keys' : 'NO S1');
+    console.log('Form1 keys:', storedFormData.form1 ? Object.keys(storedFormData.form1).length + ' keys' : 'NO Form1');
+    console.log('Form2 keys:', storedFormData.form2 ? Object.keys(storedFormData.form2).length + ' keys' : 'NO Form2');
+    console.log('Form3 keys:', storedFormData.form3 ? Object.keys(storedFormData.form3).length + ' keys' : 'NO Form3');
   } else {
     console.log('WARNING: StoredFormData is empty!');
   }
@@ -133,6 +143,11 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
 
   const checkUserLimits = async () => {
     setLoading(true);
+    console.log('=== CHECKING USER LIMITS ===');
+    console.log('User Email:', userEmail);
+    console.log('Service Type:', serviceType);
+    console.log('API URL:', `${API_URL}/v1/payment/check-limits?service_type=${serviceType}`);
+    
     try {
       // Check user's limits
       const limitsResponse = await fetch(
@@ -143,14 +158,22 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
           },
         }
       );
+      
+      console.log('Limits Response Status:', limitsResponse.status);
       const limitsData = await limitsResponse.json();
+      console.log('Limits Data:', JSON.stringify(limitsData, null, 2));
+      console.log('Has Credit:', limitsData.hasCredit);
+      console.log('Available Subscription:', limitsData.availableSubscription);
 
       setHasCredit(limitsData.hasCredit);
       setSubscriptions(limitsData.subscriptions || []);
 
       // If no credit, get pricing options
       if (!limitsData.hasCredit) {
-        console.log('User has no credit, fetching pricing options...');
+        console.log('❌ USER HAS NO CREDIT!');
+        console.log('Checked email:', userEmail);
+        console.log('Response from backend:', limitsData);
+        console.log('Fetching pricing options...');
         const optionsResponse = await fetch(
           `${API_URL}/v1/payment/pricing-options?service_type=${serviceType}`,
           {
@@ -166,29 +189,26 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
         }
         
         const optionsData = await optionsResponse.json();
-        console.log('Pricing options received:', optionsData); // Debug log
-        console.log('Available plans:', optionsData?.availablePlans); // Debug log
-        console.log('PAYG option:', optionsData?.paygOption); // Debug log
+        console.log('Pricing options received:', JSON.stringify(optionsData, null, 2));
+        console.log('Available plans count:', optionsData?.availablePlans?.length);
+        console.log('Available plans:', optionsData?.availablePlans);
+        console.log('PAYG option:', optionsData?.paygOption);
         
-        // Verify data is correct before setting
-        if (optionsData && optionsData.availablePlans) {
-          console.log('Setting pricing options with', optionsData.availablePlans.length, 'plans');
-          setPricingOptions(optionsData);
-        } else {
-          console.error('Invalid pricing options data:', optionsData);
-          setPricingOptions(optionsData); // Still set it for debugging
-        }
+        // Always set the pricing options
+        setPricingOptions(optionsData);
+        console.log('Pricing options state set to:', optionsData);
       } else {
         // Has credit, proceed with analysis
-        console.log('User has credit, calling proceedWithAnalysis');
+        console.log('✅ USER HAS CREDIT!');
+        console.log('Available subscription:', limitsData.availableSubscription);
+        console.log('Calling proceedWithAnalysis...');
         setHasCredit(true);
         proceedWithAnalysis(limitsData.availableSubscription?.id);
       }
     } catch (error) {
       console.error('Error checking limits:', error);
       Alert.alert('Hata', 'Limit kontrolü sırasında hata oluştu');
-    } finally {
-      setLoading(false);
+      setLoading(false); // Make sure loading is set to false even on error
     }
   };
 
@@ -435,11 +455,30 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
         Alert.alert('Başarılı', data.message || 'Kupon kodu uygulandı!');
         
         // If coupon provides free access, proceed with analysis
-        if (data.coupon.type === 'free_subscription') {
+        if (data.coupon.type === 'free_subscription' || data.coupon.provides_credits) {
           // Wait a moment for the backend to process the subscription
-          setTimeout(() => {
-            checkUserLimits(); // Re-check limits to get the new subscription
-          }, 1000);
+          setTimeout(async () => {
+            // Re-check limits to see if user now has credits
+            const limitsResponse = await fetch(
+              `${API_URL}/v1/payment/check-limits?service_type=${serviceType}`,
+              {
+                headers: {
+                  'x-user-email': userEmail,
+                },
+              }
+            );
+            const limitsData = await limitsResponse.json();
+            
+            if (limitsData.hasCredit) {
+              // User now has credit, proceed with analysis
+              console.log('User now has credit after coupon, proceeding with analysis');
+              setHasCredit(true);
+              proceedWithAnalysis(limitsData.availableSubscription?.id);
+            } else {
+              // Still no credit, just refresh the limits
+              checkUserLimits();
+            }
+          }, 1500);
         }
       } else {
         Alert.alert('Hata', data.message || 'Geçersiz kupon kodu');
@@ -691,6 +730,8 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
               )}
             </TouchableOpacity>
           ))
+          ) : pricingOptions ? (
+            <Text style={styles.noPlansText}>Uygun paket bulunamadı</Text>
           ) : (
             <Text style={styles.noPlansText}>Yükleniyor...</Text>
           )}

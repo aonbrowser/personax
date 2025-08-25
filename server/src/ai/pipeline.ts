@@ -381,20 +381,43 @@ export async function runOtherAnalysis(payload:any, userLang:string, userId:stri
   // Check if this is a reanalysis
   const isReanalysis = await UsageTracker.isReanalysis(userId, 'other_analysis', targetId);
   
-  // Extract relationship type from payload
-  const relationshipType = payload.relationshipType || payload.relationType || 'unknown';
+  // Handle both old and new payload structures
+  let promptFile = 'others.md'; // Default to new prompt
+  let enrichedPayload = payload;
   
-  // Add relationship type to metadata
-  const enrichedPayload = {
-    ...payload,
-    REPORTER_META: {
-      ...payload.REPORTER_META,
-      relationship_type: relationshipType,
-      person_name: targetId
+  // Check if this is the new structure from NewPersonAnalysisScreen
+  if (payload.context && payload.observerBigFive && payload.narrative) {
+    // New structure - use as is with the new others.md prompt
+    enrichedPayload = {
+      ...payload,
+      relationship_category: payload.context.relationshipCategory,
+      analysis_goal: payload.context.analysisGoal
+    };
+  } else {
+    // Old structure - use old s2.md prompt if it exists
+    try {
+      loadPrompt('s2.md');
+      promptFile = 's2.md';
+      
+      // Extract relationship type from old payload
+      const relationshipType = payload.relationshipType || payload.relationType || 'unknown';
+      
+      // Add relationship type to metadata
+      enrichedPayload = {
+        ...payload,
+        REPORTER_META: {
+          ...payload.REPORTER_META,
+          relationship_type: relationshipType,
+          person_name: targetId
+        }
+      };
+    } catch (e) {
+      // If s2.md doesn't exist, fall back to new structure
+      console.log('s2.md not found, using others.md for backward compatibility');
     }
-  };
+  }
   
-  const sys = loadPrompt('s2.md');
+  const sys = loadPrompt(promptFile);
   const messages: Msg[] = [ { role:'system', content: sys }, { role:'user', content: `INPUT JSON:\n${JSON.stringify(enrichedPayload)}` } ];
   const { content, ok, detected, tokenUsage } = await retryEnforceLanguage(messages, userLang, 2);
   

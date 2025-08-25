@@ -13,22 +13,34 @@ import {
   Image
 } from 'react-native';
 import * as Localization from 'expo-localization';
+import * as AuthSession from 'expo-auth-session';
+import * as WebBrowser from 'expo-web-browser';
 
 // Config
 import { API_URL } from './config';
 
 // Images
-const profileImage = require('./assets/images/profile.jpg');
+// Profile image removed - using user initial instead
 const analysisImage = require('./assets/images/analysis.png');
 const newPersonAnalysisImage = require('./assets/images/new-person-analysis.png');
 const cogniCoachLogo = require('./assets/images/cogni-coach-logo.png');
 const cogniCoachIcon = require('./assets/images/cogni-coach-icon.png');
+const micIcon = require('./assets/images/mic.png');
 
 // Screens
 import NewFormsScreen from './screens/NewFormsScreen';
 import PaymentCheckScreen from './screens/PaymentCheckScreen';
 import MyAnalysesScreen from './screens/MyAnalysesScreen';
 import AnalysisResultScreen from './screens/AnalysisResultScreen';
+import NewPersonAnalysisScreen from './screens/NewPersonAnalysisScreen';
+import AccountInfoScreen from './screens/AccountInfoScreen';
+
+// Services
+
+// For mobile OAuth
+if (Platform.OS !== 'web') {
+  WebBrowser.maybeCompleteAuthSession();
+}
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -40,13 +52,39 @@ export default function App() {
   const [paymentParams, setPaymentParams] = useState<any>(null);
   const [analysisResultParams, setAnalysisResultParams] = useState<any>(null);
   const [editMode, setEditMode] = useState(false);
-  const [existingS0Data, setExistingS0Data] = useState<any>(null);
-  const [existingS1Data, setExistingS1Data] = useState<any>(null);
   const [editAnalysisId, setEditAnalysisId] = useState<string | null>(null);
   
   // Home screen states
   const [hasSelfAnalysis, setHasSelfAnalysis] = useState(false);
   const [personAnalyses, setPersonAnalyses] = useState<string[]>([]);
+  const [personDrafts, setPersonDrafts] = useState<any[]>([]);
+  const [showDraftMenu, setShowDraftMenu] = useState<string | null>(null);
+  
+  // Close draft menu when clicking outside
+  useEffect(() => {
+    if (showDraftMenu) {
+      if (Platform.OS === 'web') {
+        const handleClickOutside = (event: MouseEvent) => {
+          const target = event.target as HTMLElement;
+          // Check if click is outside menu and menu button
+          if (!target.closest('[data-draft-menu]') && !target.closest('[data-draft-menu-button]')) {
+            setShowDraftMenu(null);
+          }
+        };
+        
+        // Add listener with a small delay to avoid immediate triggering
+        const timeoutId = setTimeout(() => {
+          document.addEventListener('click', handleClickOutside);
+        }, 100);
+        
+        return () => {
+          clearTimeout(timeoutId);
+          document.removeEventListener('click', handleClickOutside);
+        };
+      }
+    }
+  }, [showDraftMenu]);
+  const [continueDraft, setContinueDraft] = useState<any>(null);
   const [relationAnalyses, setRelationAnalyses] = useState<string[]>([]);
   const [chatMessage, setChatMessage] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState('tr');
@@ -54,6 +92,33 @@ export default function App() {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [isRecordingChat, setIsRecordingChat] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const [activeRecordingType, setActiveRecordingType] = useState<string | null>(null); // Track which recording is active
+
+
+  // Global click handler to stop recording when clicking outside
+  useEffect(() => {
+    const handleGlobalClick = (event: MouseEvent) => {
+      // Check if click is outside recording buttons and input areas
+      const target = event.target as HTMLElement;
+      
+      // Don't stop if clicking on recording button itself or chat input
+      const isRecordingButton = target.closest('[data-recording-button]');
+      const isChatInput = target.closest('[data-chat-input]');
+      const isFormInput = target.closest('[data-form-input]');
+      
+      if (!isRecordingButton && !isChatInput && !isFormInput && activeRecordingType) {
+        console.log('Stopping recording due to outside click');
+        stopAnyActiveRecording();
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      document.addEventListener('click', handleGlobalClick);
+      return () => {
+        document.removeEventListener('click', handleGlobalClick);
+      };
+    }
+  }, [activeRecordingType]);
 
   // Check for existing session on mount and handle URL routing
   useEffect(() => {
@@ -185,9 +250,37 @@ export default function App() {
     }
   }, []);
 
-  // Update page title based on current screen
+  // Update page title and favicon based on current screen
   useEffect(() => {
     if (Platform.OS === 'web') {
+      // Set favicon
+      const setFavicon = () => {
+        // Remove existing favicons
+        const existingIcons = document.querySelectorAll("link[rel*='icon']");
+        existingIcons.forEach(icon => icon.remove());
+        
+        // Add new favicon
+        const link = document.createElement('link');
+        link.type = 'image/png';
+        link.rel = 'icon';
+        link.href = '/favicon.png';
+        document.head.appendChild(link);
+        
+        // Add apple touch icon
+        const appleLink = document.createElement('link');
+        appleLink.rel = 'apple-touch-icon';
+        appleLink.href = '/favicon.png';
+        document.head.appendChild(appleLink);
+        
+        // Add shortcut icon for older browsers
+        const shortcutLink = document.createElement('link');
+        shortcutLink.rel = 'shortcut icon';
+        shortcutLink.href = '/favicon.png';
+        document.head.appendChild(shortcutLink);
+      };
+      
+      setFavicon();
+      
       switch(currentScreen) {
         case 'home':
           document.title = 'Cogni Coach - Kişisel Gelişim Koçunuz';
@@ -205,15 +298,6 @@ export default function App() {
         case 'AnalysisResult':
           document.title = 'Analiz Raporu - Cogni Coach';
           break;
-        case 's2form':
-          document.title = 'Kişi Analizi - Cogni Coach';
-          break;
-        case 's3form':
-          document.title = 'Tip Doğrulama - Cogni Coach';
-          break;
-        case 's4form':
-          document.title = 'Değerler & Sınırlar - Cogni Coach';
-          break;
         case 'people':
           document.title = 'Kişi Analizleri - Cogni Coach';
           break;
@@ -229,14 +313,18 @@ export default function App() {
     }
   }, [currentScreen]);
   
-  // Check analyses for home screen
+  // Check analyses for home screen - with better timing
   useEffect(() => {
-    if (currentScreen === 'home' && isAuthenticated) {
+    if (currentScreen === 'home' && isAuthenticated && email) {
       const checkAnalyses = async () => {
         try {
-          const userEmail = Platform.OS === 'web' ? 
-            localStorage.getItem('userEmail') || email || 'user@example.com' : 
-            email || 'user@example.com';
+          // Use current email from state (which is the logged-in user's email)
+          const userEmail = email;
+          
+          console.log('=== CHECKING ANALYSES FOR HOME SCREEN ===');
+          console.log('User email:', userEmail);
+          console.log('Is authenticated:', isAuthenticated);
+          console.log('Current screen:', currentScreen);
           
           const response = await fetch(`${API_URL}/v1/user/analyses`, {
             headers: {
@@ -246,10 +334,26 @@ export default function App() {
           
           if (response.ok) {
             const data = await response.json();
+            console.log('=== ANALYSES DATA FROM SERVER ===');
+            console.log('Total analyses:', data.analyses?.length || 0);
+            console.log('Raw analyses:', data.analyses);
+            
             const selfAnalyses = (data.analyses || []).filter(
-              (a: any) => a.analysis_type === 'self'
+              (a: any) => a.analysis_type === 'self' && a.status === 'completed'
             );
-            setHasSelfAnalysis(selfAnalyses.length > 0);
+            console.log('Filtered self analyses:', selfAnalyses);
+            console.log('Found self analyses count:', selfAnalyses.length);
+            const hasAnalysis = selfAnalyses.length > 0;
+            console.log('Setting hasSelfAnalysis to:', hasAnalysis);
+            setHasSelfAnalysis(hasAnalysis);
+            
+            // Force re-render if user has analysis
+            if (hasAnalysis) {
+              console.log('USER HAS SELF ANALYSIS - Forcing state update');
+              setTimeout(() => {
+                setHasSelfAnalysis(true);
+              }, 100);
+            }
             
             // Get unique person analyses (excluding self)
             const persons = (data.analyses || [])
@@ -261,46 +365,108 @@ export default function App() {
         } catch (error) {
           console.error('Error checking analyses:', error);
         }
+        
+        // Load drafts
+        try {
+          let draftsJson;
+          if (Platform.OS === 'web') {
+            draftsJson = localStorage.getItem('personAnalysisDrafts');
+          } else {
+            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+            draftsJson = await AsyncStorage.getItem('personAnalysisDrafts');
+          }
+          const drafts = draftsJson ? JSON.parse(draftsJson) : [];
+          setPersonDrafts(drafts.filter((d: any) => d.status === 'draft'));
+        } catch (error) {
+          console.error('Error loading drafts:', error);
+        }
       };
       checkAnalyses();
+      
+      // Also check again after a delay to ensure state is properly set
+      const timeoutId = setTimeout(() => {
+        console.log('Re-checking analyses after delay...');
+        checkAnalyses();
+      }, 500);
+      
+      return () => clearTimeout(timeoutId);
     }
-  }, [currentScreen, isAuthenticated]);
+  }, [currentScreen, isAuthenticated, email]);
 
-  const checkAuthStatus = () => {
-    if (Platform.OS === 'web') {
-      try {
+  const checkAuthStatus = async () => {
+    try {
+      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
         const authData = localStorage.getItem('relateCoachAuth');
         if (authData) {
           const { expiresAt } = JSON.parse(authData);
           if (new Date().getTime() < expiresAt) {
             setIsAuthenticated(true);
+            // Also load the email
+            const savedEmail = localStorage.getItem('userEmail');
+            if (savedEmail) {
+              setEmail(savedEmail);
+            }
           } else {
             localStorage.removeItem('relateCoachAuth');
           }
         }
-      } catch (error) {
-        console.error('Error checking auth status:', error);
+      } else if (Platform.OS !== 'web') {
+        // Native mobile app: Use AsyncStorage
+        try {
+          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+          const authData = await AsyncStorage.getItem('relateCoachAuth');
+          if (authData) {
+            const { expiresAt } = JSON.parse(authData);
+            if (new Date().getTime() < expiresAt) {
+              setIsAuthenticated(true);
+              // Also load the email
+              const savedEmail = await AsyncStorage.getItem('userEmail');
+              if (savedEmail) {
+                setEmail(savedEmail);
+              }
+            } else {
+              await AsyncStorage.removeItem('relateCoachAuth');
+            }
+          }
+        } catch (e) {
+          console.log('AsyncStorage not available');
+        }
       }
+    } catch (error) {
+      console.error('Error checking auth status:', error);
     }
     setIsLoading(false);
   };
 
-  const saveAuthSession = () => {
-    if (Platform.OS === 'web') {
-      try {
-        const oneYearFromNow = new Date();
-        oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
-        
-        const authData = {
-          email: email,
-          expiresAt: oneYearFromNow.getTime(),
-          timestamp: new Date().getTime()
-        };
-        
+  const saveAuthSession = async () => {
+    try {
+      
+      const oneYearFromNow = new Date();
+      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+      
+      const authData = {
+        email: email,
+        expiresAt: oneYearFromNow.getTime(),
+        timestamp: new Date().getTime()
+      };
+      
+      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
         localStorage.setItem('relateCoachAuth', JSON.stringify(authData));
-      } catch (error) {
-        console.error('Error saving auth session:', error);
+        // Also save email separately for easy access
+        localStorage.setItem('userEmail', email);
+      } else if (Platform.OS !== 'web') {
+        // Native mobile app: Use AsyncStorage
+        try {
+          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+          await AsyncStorage.setItem('relateCoachAuth', JSON.stringify(authData));
+          // Also save email separately for easy access
+          await AsyncStorage.setItem('userEmail', email);
+        } catch (e) {
+          console.log('AsyncStorage not available');
+        }
       }
+    } catch (error) {
+      console.error('Error saving auth session:', error);
     }
   };
 
@@ -322,7 +488,7 @@ export default function App() {
     }
   };
 
-  const handleEmailSignIn = () => {
+  const handleEmailSignIn = async () => {
     console.log('Login attempt with:', email, password);
     
     // Email validation
@@ -360,61 +526,171 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setIsAuthenticated(false);
     setCurrentScreen('home');
     setShowProfileMenu(false);
     setEmail('');
     setPassword('');
+    
+    // Only clear authentication data, NOT form answers
     if (Platform.OS === 'web') {
+      // Clear authentication
       localStorage.removeItem('relateCoachAuth');
+      localStorage.removeItem('userEmail');
+      localStorage.removeItem('userPicture');
+      
+      // DO NOT clear form data - keep them for when user logs in again
+      // localStorage.removeItem('form1_answers');  // COMMENTED OUT
+      // localStorage.removeItem('form2_answers');  // COMMENTED OUT
+      // localStorage.removeItem('form3_answers');  // COMMENTED OUT
+      
+      // Clear other temporary data
+      localStorage.removeItem('pending_analysis_data');
+      localStorage.removeItem('personAnalysisDrafts');
+      localStorage.removeItem('analysisResults');
+      
+      console.log('✅ Logged out, form data preserved');
+    } else {
+      // Mobile: Use AsyncStorage
+      try {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        await AsyncStorage.multiRemove([
+          'relateCoachAuth',
+          'userEmail',
+          'userPicture',
+          'form1_answers',
+          'form2_answers',
+          'form3_answers',
+          'pending_analysis_data',
+          'personAnalysisDrafts',
+          'analysisResults'
+        ]);
+        console.log('✅ All user data cleared from AsyncStorage');
+      } catch (error) {
+        console.error('Error removing auth session:', error);
+      }
     }
+  };
+
+  // Global function to stop any active recording
+  const stopAnyActiveRecording = () => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        console.log('Recognition already stopped');
+      }
+      recognitionRef.current = null;
+    }
+    setIsRecordingChat(false);
+    setActiveRecordingType(null);
   };
 
   // Speech recognition functions for chat
   const startChatRecognition = () => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    // Security check: Don't allow voice input if self-analysis not completed
+    if (!hasSelfAnalysis) {
+      console.warn('Voice input blocked: Self-analysis not completed');
+      Alert.alert('Uyarı', 'Cogni Coach ile konuşmak için önce kendi analizinizi tamamlamanız gerekiyor.');
+      return;
+    }
+    
+    // Stop any other active recording first
+    if (activeRecordingType && activeRecordingType !== 'chat') {
+      stopAnyActiveRecording();
+    }
+
+    if (typeof window !== 'undefined') {
       const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
       if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
         recognition.lang = 'tr-TR';
-        recognition.continuous = false; // Changed to false to prevent duplicates
-        recognition.interimResults = false; // Changed to false for final results only
+        recognition.continuous = true; // Keep listening continuously like in forms
+        recognition.interimResults = false; // Only final results
+        recognition.maxAlternatives = 1;
+        
+        recognition.onstart = () => {
+          console.log('Chat voice recording started');
+          setIsRecordingChat(true);
+          setActiveRecordingType('chat');
+        };
         
         recognition.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript;
-          setChatMessage(prevText => {
-            // Add space if there's existing text
-            return prevText ? prevText + ' ' + transcript : transcript;
-          });
+          // Get all results from the current session
+          let fullTranscript = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            if (event.results[i].isFinal) {
+              fullTranscript += event.results[i][0].transcript + ' ';
+            }
+          }
+          
+          if (fullTranscript) {
+            setChatMessage(prevText => {
+              // Add to existing text with a space
+              return prevText ? prevText + ' ' + fullTranscript.trim() : fullTranscript.trim();
+            });
+          }
         };
         
         recognition.onerror = (event: any) => {
-          console.error('Speech recognition error:', event.error);
-          setIsRecordingChat(false);
+          console.error('Chat speech recognition error:', event.error);
+          
+          // Only stop on fatal errors
+          if (event.error === 'no-speech' || event.error === 'audio-capture' || event.error === 'not-allowed') {
+            setIsRecordingChat(false);
+            setActiveRecordingType(null);
+          } else if (event.error === 'aborted') {
+            // Aborted means user stopped it or another recording started
+            setIsRecordingChat(false);
+            setActiveRecordingType(null);
+          } else {
+            // For network errors, try to restart
+            setTimeout(() => {
+              if (isRecordingChat && activeRecordingType === 'chat') {
+                try {
+                  recognition.start();
+                } catch (e) {
+                  console.log('Could not restart recognition');
+                }
+              }
+            }, 100);
+          }
         };
         
         recognition.onend = () => {
-          setIsRecordingChat(false);
-          // Restart if still holding the button
-          if (isRecordingChat) {
-            recognition.start();
+          console.log('Chat recognition ended, isRecordingChat:', isRecordingChat);
+          // Don't auto-restart, user must manually stop
+          if (activeRecordingType !== 'chat') {
+            setIsRecordingChat(false);
           }
         };
         
         recognitionRef.current = recognition;
-        recognition.start();
-        setIsRecordingChat(true);
+        
+        try {
+          recognition.start();
+        } catch (e) {
+          console.error('Could not start recognition:', e);
+          setIsRecordingChat(false);
+          setActiveRecordingType(null);
+        }
       }
     }
   };
 
   const stopChatRecognition = () => {
+    console.log('Stopping chat recognition');
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        console.log('Recognition already stopped');
+      }
       recognitionRef.current = null;
     }
     setIsRecordingChat(false);
+    setActiveRecordingType(null);
   };
 
   const handleAppleSignIn = () => {
@@ -428,9 +704,21 @@ export default function App() {
 
   const handleGoogleCallback = async (hash: string) => {
     try {
-      // Hash'ten access token'ı çıkar
+      // Hash'ten parametreleri çıkar
       const params = new URLSearchParams(hash.substring(1));
       const accessToken = params.get('access_token');
+      const state = params.get('state');
+      
+      // State kontrolü (CSRF koruması)
+      const savedState = sessionStorage.getItem('oauth_state');
+      if (state && savedState && state !== savedState) {
+        console.error('State mismatch - possible CSRF attack');
+        Alert.alert('Güvenlik Hatası', 'Oturum açma işlemi güvenlik nedeniyle reddedildi.');
+        return;
+      }
+      
+      // State'i temizle
+      sessionStorage.removeItem('oauth_state');
       
       if (accessToken) {
         // Google API'den kullanıcı bilgilerini al
@@ -453,6 +741,12 @@ export default function App() {
             setIsAuthenticated(true);
             setCurrentScreen('home');
             
+            if (Platform.OS !== 'web' && userData.email) {
+            }
+            
+            // Save auth session for persistence
+            await saveAuthSession();
+            
             // URL'den token'ı temizle
             window.history.replaceState({}, '', '/');
           }
@@ -465,25 +759,104 @@ export default function App() {
   
   const handleGoogleSignIn = async () => {
     try {
-      // Web için Google OAuth
+      const clientId = '1081510942447-mpjnej5fbs9vn262m4sccp3lcufmr9du.apps.googleusercontent.com';
+      
       if (Platform.OS === 'web') {
-        // Google OAuth URL'i oluştur
-        const clientId = '1081510942447-mpjnej5fbs9vn262m4sccp3lcufmr9du.apps.googleusercontent.com';
-        const redirectUri = encodeURIComponent(window.location.origin);
-        const scope = encodeURIComponent('email profile');
+        // Web için - Safari ve diğer tarayıcılar için düzeltilmiş implementasyon
+        const currentOrigin = window.location.origin;
+        
+        // Production'da https://personax.app kullan, localhost'ta http://localhost:8081
+        let redirectUri = currentOrigin;
+        if (currentOrigin.includes('localhost')) {
+          redirectUri = 'http://localhost:8081';
+        } else if (currentOrigin.includes('personax.app')) {
+          // www prefix'i olmadan kullan
+          redirectUri = 'https://personax.app';
+        }
+        
+        const encodedRedirectUri = encodeURIComponent(redirectUri);
+        const scope = encodeURIComponent('email profile openid');
         const responseType = 'token';
+        const prompt = 'select_account'; // Her zaman hesap seçimi göster
+        
+        // State parametresi ekle (CSRF koruması için)
+        const state = Math.random().toString(36).substring(7);
+        sessionStorage.setItem('oauth_state', state);
         
         const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
           `client_id=${clientId}&` +
-          `redirect_uri=${redirectUri}&` +
+          `redirect_uri=${encodedRedirectUri}&` +
           `response_type=${responseType}&` +
-          `scope=${scope}`;
+          `scope=${scope}&` +
+          `prompt=${prompt}&` +
+          `state=${state}&` +
+          `access_type=online`;
+        
+        console.log('Redirecting to Google OAuth:', authUrl);
+        console.log('Current origin:', currentOrigin);
+        console.log('Redirect URI:', redirectUri);
         
         // Google login sayfasına yönlendir
         window.location.href = authUrl;
       } else {
-        // Mobile için farklı implementation gerekecek
-        Alert.alert('Bilgi', 'Google ile giriş yakında mobil için de aktif olacak!');
+        // iOS ve Android için expo-auth-session kullan
+        // iOS Safari için useProxy: false kullan
+        const useProxy = Platform.OS === 'android'; // Sadece Android'de proxy kullan
+        
+        const redirectUri = AuthSession.makeRedirectUri({
+          scheme: 'com.personax.app',
+          useProxy: useProxy,
+          preferLocalhost: false,
+          path: 'redirect'
+        });
+        
+        console.log('Mobile redirect URI:', redirectUri);
+        console.log('Platform:', Platform.OS);
+        console.log('Using proxy:', useProxy);
+        
+        const discovery = {
+          authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
+          tokenEndpoint: 'https://oauth2.googleapis.com/token',
+        };
+        
+        const request = new AuthSession.AuthRequest({
+          clientId,
+          scopes: ['openid', 'profile', 'email'],
+          redirectUri,
+          responseType: AuthSession.ResponseType.Token,
+          prompt: AuthSession.Prompt.SelectAccount,
+          usePKCE: false,
+        });
+        
+        const result = await request.promptAsync(discovery);
+        
+        if (result.type === 'success' && result.params && result.params.access_token) {
+          // Google API'den kullanıcı bilgilerini al
+          const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+            headers: {
+              'Authorization': `Bearer ${result.params.access_token}`
+            }
+          });
+          
+          const userInfo = await userInfoResponse.json();
+          console.log('Google user info:', userInfo);
+          
+          // Kullanıcı bilgilerini kaydet ve giriş yap
+          setIsAuthenticated(true);
+          setEmail(userInfo.email);
+          setCurrentScreen('home');
+          
+          if (Platform.OS !== 'web') {
+          }
+          
+          // Başarılı giriş mesajı
+          Alert.alert('Başarılı', `Hoş geldiniz, ${userInfo.name || userInfo.email}!`);
+        } else if (result.type === 'cancel') {
+          console.log('Google sign-in cancelled');
+        } else if (result.type === 'error') {
+          console.error('Google sign-in error:', result.error);
+          Alert.alert('Hata', 'Google ile giriş yapılamadı. Lütfen tekrar deneyin.');
+        }
       }
     } catch (error) {
       console.error('Google sign in error:', error);
@@ -497,19 +870,19 @@ export default function App() {
   };
 
   const handleNewPersonAnalysis = () => {
-    setCurrentScreen('s2form');
+    setContinueDraft(null); // Clear any draft data
+    setCurrentScreen('newPersonAnalysis');
   };
   
   const handleSelfAnalysis = () => {
     // Yeni form ekranına yönlendir
-    setCurrentScreen('newforms');
+    setCurrentScreen('NewForms');
   };
   
   const handleRelationshipAnalysis = () => {
     setCurrentScreen('s4form');
   };
 
-  // S2 Form Screen Components
   const RelationPicker = ({ onPick, selectedRelation }: any) => {
     const options = [
       { key:'mother', label:'Annem' }, 
@@ -704,825 +1077,9 @@ export default function App() {
     );
   };
 
-  // S2 Form Screen (Other Person Analysis)
-  const S2FormScreen = () => {
-    const [relation, setRelation] = useState<any>(null);
-    const [personName, setPersonName] = useState<string>('');
-    const [items, setItems] = useState<any[]>([]);
-    const [answers, setAnswers] = useState<any>({});
-    const [isLoading, setIsLoading] = useState(false);
-    const [showNameInput, setShowNameInput] = useState(false);
-    
-    useEffect(() => {
-      if (relation?.key && personName) {
-        setIsLoading(true);
-        
-        // Try to load saved answers
-        const storageKey = `s2r_${relation.key}_${personName}`;
-        const savedAnswers = localStorage.getItem(storageKey);
-        
-        fetch(`${API_URL}/v1/items/by-form?form=S2R_${relation.key}`)
-          .then(r => r.json())
-          .then(data => {
-            const loadedItems = data.items || [];
-            setItems(loadedItems);
-            
-            // Load saved answers or set defaults
-            if (savedAnswers) {
-              setAnswers(JSON.parse(savedAnswers));
-            } else {
-              // Set "Don't know" as default for all questions
-              const defaultAnswers: any = {};
-              loadedItems.forEach((item: any) => {
-                // For questions with "?" option, set it as default
-                if (item.options_tr && item.options_tr.includes('?: Bilmiyorum')) {
-                  defaultAnswers[item.id] = '?';
-                }
-              });
-              setAnswers(defaultAnswers);
-            }
-            
-            setIsLoading(false);
-          })
-          .catch(err => {
-            console.error('Error loading form:', err);
-            setIsLoading(false);
-            Alert.alert('Hata', 'Form yüklenirken bir hata oluştu');
-          });
-      }
-    }, [relation?.key, personName]);
-    
-    const handleRelationSelect = (rel: any) => {
-      setRelation(rel);
-      
-      // Set default name based on relationship type
-      const defaultNames: { [key: string]: string } = {
-        'mother': 'Annem',
-        'father': 'Babam',
-        'sibling': 'Kardeşim',
-        'relative': 'Akrabam',
-        'best_friend': 'En yakın arkadaşım',
-        'friend': 'Arkadaşım',
-        'roommate': 'Ev arkadaşım',
-        'neighbor': 'Komşum',
-        'crush': 'Hoşlandığım kişi',
-        'date': 'Flörtüm',
-        'partner': 'Sevgilim',
-        'fiance': 'Nişanlım',
-        'spouse': 'Eşim',
-        'coworker': 'İş arkadaşım',
-        'manager': 'Yöneticim',
-        'direct_report': 'Ekip üyem',
-        'client': 'Müşterim',
-        'vendor': 'Tedarikçim',
-        'mentor': 'Mentorum',
-        'mentee': 'Mentim'
-      };
-      
-      // Set default name if available
-      if (defaultNames[rel.key]) {
-        setPersonName(defaultNames[rel.key]);
-      }
-      
-      setShowNameInput(true);
-    };
-    
-    const handleNameSubmit = () => {
-      if (!personName.trim()) {
-        Alert.alert('Uyarı', 'Lütfen kişinin adını girin');
-        return;
-      }
-      setShowNameInput(false);
-    };
-    
-    const setAnswer = (id: string, val: any) => {
-      setAnswers((prev: any) => {
-        const newAnswers = { ...prev, [id]: val };
-        
-        // Auto-save to localStorage
-        if (relation?.key && personName) {
-          const storageKey = `s2r_${relation.key}_${personName}`;
-          localStorage.setItem(storageKey, JSON.stringify(newAnswers));
-        }
-        
-        return newAnswers;
-      });
-    };
-    
-    const getProgress = () => {
-      const answered = Object.keys(answers).filter(key => answers[key] !== '?').length; // Don't count "Don't know" as answered
-      const total = items.length;
-      return { answered, total, percentage: total > 0 ? Math.round((answered / total) * 100) : 0 };
-    };
-    
-    const getRelationEmoji = (key: string) => {
-      const emojis: any = {
-        'mother': '👩',
-        'father': '👨',
-        'sibling': '👥',
-        'relative': '👨‍👩‍👧‍👦',
-        'best_friend': '💛',
-        'friend': '🤝',
-        'roommate': '🏠',
-        'neighbor': '🏘️',
-        'crush': '💕',
-        'date': '💗',
-        'partner': '❤️',
-        'fiance': '💍',
-        'spouse': '💑',
-        'coworker': '💼',
-        'manager': '👔',
-        'direct_report': '👥',
-        'client': '🤝',
-        'vendor': '📦',
-        'mentor': '🎓',
-        'mentee': '📚'
-      };
-      return emojis[key] || '👤';
-    };
-    
-    const handleSubmit = () => {
-      const progress = getProgress();
-      
-      if (progress.answered === 0) {
-        Alert.alert('Uyarı', 'Lütfen en az bir soruyu yanıtlayın');
-        return;
-      }
-      
-      if (progress.answered < progress.total) {
-        Alert.alert(
-          'Eksik Yanıtlar',
-          `${progress.total} sorudan ${progress.answered} tanesi yanıtlandı. Eksik soruları tamamlamak ister misiniz?`,
-          [
-            {
-              text: 'Devam Et',
-              style: 'cancel'
-            },
-            {
-              text: 'Yine de Gönder',
-              onPress: () => submitForm()
-            }
-          ]
-        );
-      } else {
-        submitForm();
-      }
-    };
-    
-    const submitForm = async () => {
-      const progress = getProgress();
-      
-      try {
-        setIsLoading(true);
-        
-        // Prepare S2 data
-        const s2Data = {
-          S2_ITEMS: items.map(item => ({
-            ...item,
-            response_value: answers[item.id] || null,
-            response_label: answers[item.id] || null
-          })),
-          REPORTER_META: {
-            relationship_type: relation.key,
-            person_name: personName,
-            locale: 'tr',
-            demographics: {
-              relationship: relation.label
-            }
-          }
-        };
-        
-        // Send to API
-        const response = await fetch(`${API_URL}/v1/analyze/other`, { 
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-user-lang': 'tr',
-            'x-user-id': 'test-user'
-          },
-          body: JSON.stringify({
-            ...s2Data,
-            relationshipType: relation.key,
-            targetId: personName
-          })
-        });
-        
-        if (response.ok) {
-          const result = await response.json();
-          
-          // Navigate to analysis result
-          navigation.navigate('AnalysisResult', {
-            markdown: result.markdown,
-            analysisType: 'other'
-          });
-          
-          // Reset form
-          setCurrentScreen('home');
-          setRelation(null);
-          setPersonName('');
-          setItems([]);
-          setAnswers({});
-        } else {
-          Alert.alert('Hata', 'Analiz gönderilemedi. Lütfen tekrar deneyin.');
-        }
-      } catch (error) {
-        console.error('Submit error:', error);
-        Alert.alert('Hata', 'Bir hata oluştu. Lütfen tekrar deneyin.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.screenContainer}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity 
-              onPress={() => setCurrentScreen('people')} 
-              style={styles.backButtonContainer}
-            >
-              <Text style={styles.backArrow}>←</Text>
-            </TouchableOpacity>
-            <View style={styles.headerTitleWithIcon}>
-              <Image 
-                source={cogniCoachIcon} 
-                style={styles.headerIcon}
-                resizeMode="contain"
-              />
-              <Text style={styles.headerTitle}>Kişi Analizi</Text>
-            </View>
-            <View style={styles.headerSpacer} />
-          </View>
 
-          {!relation ? (
-            <View style={styles.relationPickerContainer}>
-              <Text style={styles.relationPickerTitle}>İlişki Türünü Seçin:</Text>
-              <Text style={styles.relationPickerSubtitle}>
-                Analiz edeceğiniz kişi sizin için kim?
-              </Text>
-              <ScrollView style={styles.relationPickerScroll} showsVerticalScrollIndicator={false}>
-                {[
-                  { key:'mother', label:'Annem' }, 
-                  { key:'father', label:'Babam' }, 
-                  { key:'sibling', label:'Kardeşim' }, 
-                  { key:'relative', label:'Akraba' },
-                  { key:'best_friend', label:'Yakın Arkadaş' }, 
-                  { key:'friend', label:'Arkadaş' }, 
-                  { key:'roommate', label:'Ev Arkadaşı' }, 
-                  { key:'neighbor', label:'Komşu' },
-                  { key:'crush', label:'Hoşlandığım Kişi' }, 
-                  { key:'date', label:'Flört' }, 
-                  { key:'partner', label:'Sevgili/Partner' }, 
-                  { key:'fiance', label:'Nişanlı' }, 
-                  { key:'spouse', label:'Eş' },
-                  { key:'coworker', label:'İş Arkadaşı' }, 
-                  { key:'manager', label:'Yönetici' }, 
-                  { key:'direct_report', label:'Ekip Üyem' }, 
-                  { key:'client', label:'Müşteri' }, 
-                  { key:'vendor', label:'Tedarikçi' },
-                  { key:'mentor', label:'Mentor' }, 
-                  { key:'mentee', label:'Menti/Öğrenci' },
-                ].map(o => (
-                  <TouchableOpacity 
-                    key={o.key} 
-                    onPress={() => handleRelationSelect(o)} 
-                    style={[
-                      styles.relationOption,
-                      relation?.key === o.key && styles.relationOptionSelected
-                    ]}
-                  >
-                    <View style={styles.relationOptionContent}>
-                      <Text style={styles.relationEmoji}>{getRelationEmoji(o.key)}</Text>
-                      <Text style={[
-                        styles.relationOptionText,
-                        relation?.key === o.key && styles.relationOptionTextSelected
-                      ]}>{o.label}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          ) : showNameInput ? (
-            <View style={styles.nameInputContainer}>
-              <View style={styles.nameInputHeader}>
-                <Text style={styles.nameInputEmoji}>{getRelationEmoji(relation.key)}</Text>
-                <Text style={styles.nameInputTitle}>{relation.label}</Text>
-              </View>
-              <Text style={styles.nameInputLabel}>Bu kişinin adı nedir?</Text>
-              <TextInput
-                style={styles.nameInput}
-                placeholder="İsterseniz değiştirebilirsiniz..."
-                value={personName}
-                onChangeText={setPersonName}
-                autoFocus
-                onSubmitEditing={handleNameSubmit}
-              />
-              <View style={styles.nameInputButtons}>
-                <TouchableOpacity 
-                  style={styles.nameInputButtonSecondary}
-                  onPress={() => {
-                    setRelation(null);
-                    setPersonName('');
-                    setShowNameInput(false);
-                  }}
-                >
-                  <Text style={styles.nameInputButtonSecondaryText}>Geri</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.nameInputButton}
-                  onPress={handleNameSubmit}
-                >
-                  <Text style={styles.nameInputButtonText}>Devam Et</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : (
-            <ScrollView 
-              showsVerticalScrollIndicator={false} 
-              style={styles.content}
-              contentContainerStyle={styles.formContentContainer}
-            >
-              {/* Person Info Card */}
-              <View style={styles.personInfoCard}>
-                <View style={styles.personInfoHeader}>
-                  <Text style={styles.personInfoEmoji}>{getRelationEmoji(relation.key)}</Text>
-                  <View style={styles.personInfoDetails}>
-                    <Text style={styles.personInfoName}>{personName}</Text>
-                    <Text style={styles.personInfoRelation}>{relation.label}</Text>
-                  </View>
-                  <TouchableOpacity 
-                    onPress={() => {
-                      setRelation(null);
-                      setPersonName('');
-                      setItems([]);
-                      setAnswers({});
-                      setShowNameInput(false);
-                    }}
-                    style={styles.changeButton}
-                  >
-                    <Text style={styles.changeButtonText}>Değiştir</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
 
-              {/* Progress Bar */}
-              {items.length > 0 && (
-                <View style={styles.progressContainer}>
-                  <View style={styles.progressHeader}>
-                    <Text style={styles.progressText}>
-                      İlerleme: {getProgress().answered} / {getProgress().total}
-                    </Text>
-                    <Text style={styles.progressPercentage}>
-                      %{getProgress().percentage}
-                    </Text>
-                  </View>
-                  <View style={styles.progressBarBackground}>
-                    <View 
-                      style={[
-                        styles.progressBarFill,
-                        { width: `${getProgress().percentage}%` }
-                      ]} 
-                    />
-                  </View>
-                </View>
-              )}
-              
-              {isLoading ? (
-                <View style={styles.loadingContainer}>
-                  <Text style={styles.loadingText}>Form yükleniyor...</Text>
-                </View>
-              ) : items.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Text style={styles.emptyIcon}>📋</Text>
-                  <Text style={styles.emptyTitle}>Form bulunamadı</Text>
-                  <Text style={styles.emptyDescription}>
-                    Bu ilişki türü için henüz soru eklenmemiş
-                  </Text>
-                </View>
-              ) : (
-                <>
-                  <View style={styles.questionsContainer}>
-                    {items.map((item: any, index: number) => {
-                      // Replace [AD] with person's name
-                      const modifiedItem = {
-                        ...item,
-                        text_tr: item.text_tr?.replace('[AD]', personName)
-                      };
-                      
-                      return (
-                        <View key={item.id}>
-                          {item.type === 'MultiChoice5' ? (
-                            <MultiRow 
-                              item={modifiedItem} 
-                              value={answers[item.id]} 
-                              onChange={(v: any) => setAnswer(item.id, v)} 
-                            />
-                          ) : (
-                            <LikertRow 
-                              item={modifiedItem} 
-                              value={answers[item.id]} 
-                              onChange={(v: any) => setAnswer(item.id, v)} 
-                            />
-                          )}
-                        </View>
-                      );
-                    })}
-                  </View>
-                  
-                  <View style={styles.formFooter}>
-                    <View style={styles.summaryCard}>
-                      <Text style={styles.summaryTitle}>Özet</Text>
-                      <Text style={styles.summaryText}>
-                        {personName} için {getProgress().answered}/{getProgress().total} soru yanıtlandı
-                      </Text>
-                      {getProgress().answered === getProgress().total && (
-                        <Text style={styles.completedText}>Tüm sorular tamamlandı!</Text>
-                      )}
-                    </View>
-                    
-                    <TouchableOpacity 
-                      style={[
-                        styles.submitButton,
-                        getProgress().answered === 0 && styles.submitButtonDisabled
-                      ]} 
-                      onPress={handleSubmit}
-                    >
-                      <Text style={styles.submitButtonText}>
-                        {getProgress().answered === getProgress().total ? 'Analizi Tamamla' : 'Gönder'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              )}
-            </ScrollView>
-          )}
-        </View>
-      </SafeAreaView>
-    );
-  };
 
-  // S1 Form Screen - moved to separate file: screens/S1FormScreen.tsx
-  // S1 Check Screen - moved to separate file: screens/S1CheckScreen.tsx
-
-  // S3 Form Screen (Type Check)
-  const S3FormScreen = () => {
-    const [items, setItems] = useState<any[]>([]);
-    const [answers, setAnswers] = useState<any>({});
-    const [isLoading, setIsLoading] = useState(false);
-    
-    useEffect(() => {
-      setIsLoading(true);
-      fetch(`${API_URL}/v1/items/by-form?form=S3_self`)
-        .then(r => r.json())
-        .then(data => {
-          setItems(data.items || []);
-          setIsLoading(false);
-        })
-        .catch(err => {
-          console.error('Error loading S3 form:', err);
-          setIsLoading(false);
-          Alert.alert('Hata', 'Form yüklenirken bir hata oluştu');
-        });
-    }, []);
-    
-    const setAnswer = (id: string, val: any) => {
-      setAnswers((prev: any) => ({ ...prev, [id]: val }));
-    };
-    
-    const handleSubmit = () => {
-      const answeredCount = Object.keys(answers).length;
-      if (answeredCount < items.length) {
-        Alert.alert('Uyarı', `Lütfen tüm soruları yanıtlayın (${answeredCount}/${items.length})`);
-        return;
-      }
-      // S3 tamamlandı, S4 seçeneği sun
-      Alert.alert(
-        '📊 Değerler & Sınırlar',
-        'İlişki dinamiklerinizi daha iyi anlamak için değerler ve sınırlar testini yapmak ister misiniz?',
-        [
-          {
-            text: 'Hayır, Bitir',
-            onPress: () => {
-              Alert.alert('✅ Tamamlandı', 'Analiziniz başarıyla kaydedildi.');
-              setCurrentScreen('home');
-            },
-            style: 'cancel'
-          },
-          {
-            text: 'Evet',
-            onPress: () => setCurrentScreen('s4form')
-          }
-        ]
-      );
-    };
-    
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.screenContainer}>
-          <View style={styles.header}>
-            <TouchableOpacity 
-              onPress={() => setCurrentScreen('home')} 
-              style={styles.backButtonContainer}
-            >
-              <Text style={styles.backArrow}>←</Text>
-            </TouchableOpacity>
-            <View style={styles.headerTitleWithIcon}>
-              <Image 
-                source={cogniCoachIcon} 
-                style={styles.headerIcon}
-                resizeMode="contain"
-              />
-              <Text style={styles.headerTitle}>Tip Doğrulama</Text>
-            </View>
-            <View style={styles.headerSpacer} />
-          </View>
-
-          <ScrollView 
-            showsVerticalScrollIndicator={false} 
-            style={styles.content}
-            contentContainerStyle={styles.formContentContainer}
-          >
-            <View style={styles.infoCard}>
-              <Text style={styles.infoText}>
-                Aşağıdaki seçeneklerden size daha yakın olanı seçin
-              </Text>
-            </View>
-            
-            {isLoading ? (
-              <View style={styles.loadingContainer}>
-                <Text style={styles.loadingText}>Form yükleniyor...</Text>
-              </View>
-            ) : items.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyIcon}>📋</Text>
-                <Text style={styles.emptyTitle}>Form bulunamadı</Text>
-              </View>
-            ) : (
-              <>
-                {items.map((item: any) => (
-                  <ForcedRow 
-                    key={item.id} 
-                    item={item} 
-                    value={answers[item.id]} 
-                    onChange={(v: any) => setAnswer(item.id, v)} 
-                  />
-                ))}
-                
-                <TouchableOpacity 
-                  style={styles.submitButton} 
-                  onPress={handleSubmit}
-                >
-                  <Text style={styles.submitButtonText}>Gönder</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </ScrollView>
-        </View>
-      </SafeAreaView>
-    );
-  };
-
-  // S4 Form Screen (Values & Boundaries)
-  const S4FormScreen = () => {
-    const [domain, setDomain] = useState<string>('S4_romantic');
-    const [items, setItems] = useState<any[]>([]);
-    const [answers, setAnswers] = useState<any>({});
-    const [isLoading, setIsLoading] = useState(false);
-    
-    useEffect(() => {
-      setIsLoading(true);
-      setAnswers({});
-      fetch(`${API_URL}/v1/items/by-form?form=${domain}`)
-        .then(r => r.json())
-        .then(data => {
-          setItems(data.items || []);
-          setIsLoading(false);
-        })
-        .catch(err => {
-          console.error('Error loading S4 form:', err);
-          setIsLoading(false);
-          Alert.alert('Hata', 'Form yüklenirken bir hata oluştu');
-        });
-    }, [domain]);
-    
-    const setAnswer = (id: string, val: any) => {
-      setAnswers((prev: any) => ({ ...prev, [id]: val }));
-    };
-    
-    const handleSubmit = () => {
-      const answeredCount = Object.keys(answers).length;
-      if (answeredCount === 0) {
-        Alert.alert('Uyarı', 'Lütfen en az bir soruyu yanıtlayın');
-        return;
-      }
-      // S4 tamamlandı, analiz bitti
-      Alert.alert(
-        '✅ Tüm Analizler Tamamlandı', 
-        'Kişilik analiziniz ve değerler/sınırlar testiniz başarıyla kaydedildi.',
-        [
-          {
-            text: 'Ana Sayfaya Dön',
-            onPress: () => {
-              setCurrentScreen('home');
-            }
-          }
-        ]
-      );
-    };
-    
-    const domainLabels = {
-      'S4_family': 'Aile',
-      'S4_friend': 'Arkadaş',
-      'S4_work': 'İş',
-      'S4_romantic': 'Romantik'
-    };
-    
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.screenContainer}>
-          <View style={styles.header}>
-            <TouchableOpacity 
-              onPress={() => setCurrentScreen('home')} 
-              style={styles.backButtonContainer}
-            >
-              <Text style={styles.backArrow}>←</Text>
-            </TouchableOpacity>
-            <View style={styles.headerTitleWithIcon}>
-              <Image 
-                source={cogniCoachIcon} 
-                style={styles.headerIcon}
-                resizeMode="contain"
-              />
-              <Text style={styles.headerTitle}>Değerler & Sınırlar</Text>
-            </View>
-            <View style={styles.headerSpacer} />
-          </View>
-
-          <ScrollView 
-            showsVerticalScrollIndicator={false} 
-            style={styles.content}
-            contentContainerStyle={styles.formContentContainer}
-          >
-            <View style={styles.domainTabs}>
-              {Object.entries(domainLabels).map(([key, label]) => (
-                <TouchableOpacity 
-                  key={key} 
-                  onPress={() => setDomain(key)} 
-                  style={[
-                    styles.domainTab,
-                    domain === key && styles.domainTabActive
-                  ]}
-                >
-                  <Text style={[
-                    styles.domainTabText,
-                    domain === key && styles.domainTabTextActive
-                  ]}>{label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            
-            {isLoading ? (
-              <View style={styles.loadingContainer}>
-                <Text style={styles.loadingText}>Form yükleniyor...</Text>
-              </View>
-            ) : items.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyIcon}>📋</Text>
-                <Text style={styles.emptyTitle}>Form bulunamadı</Text>
-              </View>
-            ) : (
-              <>
-                {items.map((item: any) => (
-                  <LikertRow 
-                    key={item.id} 
-                    item={item} 
-                    value={answers[item.id]} 
-                    onChange={(v: any) => setAnswer(item.id, v)} 
-                  />
-                ))}
-                
-                <TouchableOpacity 
-                  style={styles.submitButton} 
-                  onPress={handleSubmit}
-                >
-                  <Text style={styles.submitButtonText}>Gönder</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </ScrollView>
-        </View>
-      </SafeAreaView>
-    );
-  };
-
-  // People Screen
-  const PeopleScreen = () => (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.screenContainer}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => setCurrentScreen('home')} style={styles.backButtonContainer}>
-            <Text style={styles.backArrow}>←</Text>
-          </TouchableOpacity>
-          <View style={styles.headerTitleWithIcon}>
-            <Image 
-              source={cogniCoachIcon} 
-              style={styles.headerIcon}
-              resizeMode="contain"
-            />
-            <Text style={styles.headerTitle}>Kişi Analizleri</Text>
-          </View>
-          <View style={styles.headerSpacer} />
-        </View>
-
-        <ScrollView showsVerticalScrollIndicator={false} style={styles.content}>
-          {/* Action Buttons */}
-          <View style={styles.actionButtonsContainer}>
-            <TouchableOpacity 
-              style={[styles.actionButton, styles.primaryActionButton]}
-              onPress={handleSelfAnalysis}
-            >
-              <Image source={profileImage} style={styles.actionButtonIconImage} />
-              <View style={styles.actionButtonContent}>
-                <Text style={styles.primaryActionButtonTitle}>Kendi Analizim</Text>
-                <Text style={styles.primaryActionButtonDescription}>60 soruluk kişilik testi</Text>
-              </View>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={handleNewPersonAnalysis}
-            >
-              <Image source={newPersonAnalysisImage} style={styles.actionButtonIconImage} />
-              <View style={styles.actionButtonContent}>
-                <Text style={styles.actionButtonTitle}>Yeni Analiz</Text>
-                <Text style={styles.actionButtonDescription}>Tanıdığınız birini analiz edin</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          {/* People List */}
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Kayıtlı Kişiler</Text>
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>📋</Text>
-              <Text style={styles.emptyTitle}>Henüz kişi eklenmemiş</Text>
-              <Text style={styles.emptyDescription}>
-                Yeni kişi ekleyerek analizlere başlayabilirsiniz
-              </Text>
-            </View>
-          </View>
-        </ScrollView>
-      </View>
-    </SafeAreaView>
-  );
-
-  // Reports Screen
-  const ReportsScreen = () => (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.screenContainer}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => setCurrentScreen('home')} style={styles.backButtonContainer}>
-            <Text style={styles.backArrow}>←</Text>
-          </TouchableOpacity>
-          <View style={styles.headerTitleWithIcon}>
-            <Image 
-              source={cogniCoachIcon} 
-              style={styles.headerIcon}
-              resizeMode="contain"
-            />
-            <Text style={styles.headerTitle}>İlişki Analizleri</Text>
-          </View>
-          <View style={styles.headerSpacer} />
-        </View>
-
-        <ScrollView showsVerticalScrollIndicator={false} style={styles.content}>
-          <TouchableOpacity 
-            style={[styles.actionCard, styles.primaryCard, styles.fullWidthCard]}
-            onPress={handleRelationshipAnalysis}
-          >
-            <View style={styles.cardIcon}>
-              <Text style={styles.iconText}>💞</Text>
-            </View>
-            <Text style={styles.primaryCardTitle}>İlişki Değerleri & Sınırları</Text>
-            <Text style={styles.primaryCardDescription}>
-              İlişkinizdeki değerleri ve sınırları belirleyin
-            </Text>
-          </TouchableOpacity>
-          
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}></Text>
-            <Text style={styles.emptyTitle}>Henüz analiz yok</Text>
-            <Text style={styles.emptyDescription}>
-              İlk ilişki analizinizi başlatın
-            </Text>
-          </View>
-        </ScrollView>
-      </View>
-    </SafeAreaView>
-  );
 
   // Show loading screen while checking auth
   if (isLoading) {
@@ -1546,67 +1103,36 @@ export default function App() {
       return <ReportsScreen />;
     }
     
-    if (currentScreen === 'newforms') {
-      return <NewFormsScreen navigation={{ 
-        navigate: (screen: string, params?: any) => {
-          if (screen === 'paymentCheck' && params) {
-            setPaymentParams(params);
-          }
-          setCurrentScreen(screen);
-        },
-        goBack: () => setCurrentScreen('home')
-      }} />;
+    if (currentScreen === 'newPersonAnalysis') {
+      return <NewPersonAnalysisScreen 
+        onClose={() => {
+          setContinueDraft(null);
+          setCurrentScreen('home');
+        }}
+        userEmail={email}
+        draftId={continueDraft?.id || null}
+        draftData={continueDraft}
+        activeRecordingType={activeRecordingType}
+        setActiveRecordingType={setActiveRecordingType}
+        stopAnyActiveRecording={stopAnyActiveRecording}
+      />;
     }
     
-    // Old screens commented out - replaced by NewFormsScreen
-    /*
-    if (currentScreen === 's0check' || currentScreen === 'S0Check') {
-      return <S0CheckScreen navigation={{ 
-        navigate: (screen: string) => setCurrentScreen(screen),
-        goBack: () => setCurrentScreen('s0profile')
-      }} />;
-    }
-    
-    if (currentScreen === 's0_mbti' || currentScreen === 'S0_MBTI') {
-      return <S0_MBTIScreen navigation={{ 
-        navigate: (screen: string) => setCurrentScreen(screen),
-        goBack: () => setCurrentScreen('S0Check')
-      }} />;
-    }
-    
-    if (currentScreen === 's1form' || currentScreen === 'S1Form') {
-      return <S1FormScreen navigation={{ 
-        navigate: (screen: string, params?: any) => {
-          if (screen === 'paymentCheck' && params) {
-            setPaymentParams(params);
-          }
-          setCurrentScreen(screen);
-        },
-        goBack: () => setCurrentScreen('s0check')
-      }} />;
-    }
-    
-    if (currentScreen === 's1check' || currentScreen === 'S1Check') {
-      return <S1CheckScreen navigation={{ 
-        navigate: setCurrentScreen,
-        goBack: () => setCurrentScreen('S1Form')
-      }} />;
-    }
-    */
-    
-    if (currentScreen === 's2form') {
-      return <S2FormScreen />;
-    }
-    
-    if (currentScreen === 's3form') {
-      return <S3FormScreen />;
-    }
-    
-    if (currentScreen === 's4form') {
-      return <S4FormScreen />;
-    }
     
     if (currentScreen === 'PaymentCheck') {
+      console.log('=== RENDERING PAYMENTCHECKSCREEN ===');
+      console.log('currentScreen is:', currentScreen);
+      console.trace('PaymentCheckScreen render call stack');
+      console.log('paymentParams exists:', !!paymentParams);
+      if (paymentParams) {
+        console.log('paymentParams keys:', Object.keys(paymentParams));
+        console.log('paymentParams.form1Data exists:', !!paymentParams.form1Data);
+        console.log('paymentParams.form2Data exists:', !!paymentParams.form2Data);
+        console.log('paymentParams.form3Data exists:', !!paymentParams.form3Data);
+      } else {
+        console.log('paymentParams is null/undefined/false:', paymentParams);
+      }
+      
       return <PaymentCheckScreen 
         navigation={{ 
           navigate: (screen: string, params?: any) => {
@@ -1620,6 +1146,7 @@ export default function App() {
         route={{
           params: {
             serviceType: 'self_analysis',
+            userEmail: paymentParams?.userEmail || email,
             form1Data: paymentParams?.form1Data,
             form2Data: paymentParams?.form2Data,
             form3Data: paymentParams?.form3Data,
@@ -1630,6 +1157,15 @@ export default function App() {
             }
           }
         }}
+      />;
+    }
+    
+    if (currentScreen === 'AccountInfo') {
+      return <AccountInfoScreen 
+        navigation={{ 
+          goBack: () => setCurrentScreen('home')
+        }}
+        userEmail={email}
       />;
     }
     
@@ -1656,6 +1192,7 @@ export default function App() {
           },
           goBack: () => setCurrentScreen('home')
         }}
+        userEmail={email}
       />;
     }
     
@@ -1675,20 +1212,46 @@ export default function App() {
       return <NewFormsScreen 
         navigation={{ 
           navigate: (screen: string, params?: any) => {
+            console.log(`=== NEWFORMS NAVIGATION CALLED: screen="${screen}" ===`);
+            
             if (screen === 'PaymentCheck') {
-              // Store form data and navigate
-              console.log('Navigating to PaymentCheck with params:', params);
-              setPaymentParams(params);
+              // Store form data and navigate with email
+              console.log('=== NAVIGATION FROM NEWFORMS TO PAYMENTCHECK ===');
+              console.log('Received params:', params);
+              console.log('form1Data exists:', !!params?.form1Data);
+              console.log('form2Data exists:', !!params?.form2Data);
+              console.log('form3Data exists:', !!params?.form3Data);
+              
+              if (params?.form1Data) {
+                console.log('Form1 keys count:', Object.keys(params.form1Data).length);
+                console.log('Form1 sample:', Object.keys(params.form1Data).slice(0, 3));
+              }
+              if (params?.form2Data) {
+                console.log('Form2 keys count:', Object.keys(params.form2Data).length);
+                console.log('Form2 sample:', Object.keys(params.form2Data).slice(0, 3));
+              }
+              if (params?.form3Data) {
+                console.log('Form3 keys count:', Object.keys(params.form3Data).length);
+                console.log('Form3 sample:', Object.keys(params.form3Data).slice(0, 3));
+              }
+              
+              const paymentData = { ...params, userEmail: email };
+              console.log('Setting paymentParams with:', Object.keys(paymentData));
+              setPaymentParams(paymentData);
               setCurrentScreen(screen);
             } else if (screen === 'MyAnalyses') {
               setCurrentScreen(screen);
             } else {
+              console.log(`Setting screen to: ${screen}`);
               setCurrentScreen(screen);
             }
           },
           goBack: () => setCurrentScreen('home')
         }}
-        route={{ params: {} }}
+        route={{ params: { userEmail: email } }}
+        activeRecordingType={activeRecordingType}
+        setActiveRecordingType={setActiveRecordingType}
+        stopAnyActiveRecording={stopAnyActiveRecording}
       />;
     }
     
@@ -1728,7 +1291,9 @@ export default function App() {
                 <Text style={styles.languageButtonText}>🌐 {selectedLanguage.toUpperCase()}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.profileButton} onPress={() => setShowProfileMenu(!showProfileMenu)}>
-                <Image source={profileImage} style={styles.profileImage} />
+                <Text style={styles.profileInitial}>
+                  {email ? email[0].toUpperCase() : 'U'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1751,6 +1316,15 @@ export default function App() {
               <View style={styles.profileMenuHeader}>
                 <Text style={styles.profileMenuEmail}>{email}</Text>
               </View>
+              <TouchableOpacity 
+                style={styles.profileMenuItem} 
+                onPress={() => {
+                  setShowProfileMenu(false);
+                  setCurrentScreen('AccountInfo');
+                }}
+              >
+                <Text style={styles.profileMenuItemText}>👤 Bilgilerim</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.profileMenuItem} onPress={handleLogout}>
                 <Text style={styles.profileMenuItemText}>🚪 Çıkış Yap</Text>
               </TouchableOpacity>
@@ -1799,13 +1373,16 @@ export default function App() {
                   value={chatMessage}
                   onChangeText={setChatMessage}
                   editable={hasSelfAnalysis}
+                  {...(Platform.OS === 'web' ? { 'data-chat-input': true } : {})}
                 />
-                {Platform.OS === 'web' && hasSelfAnalysis && 
-                  typeof window !== 'undefined' && 
-                  ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) && (
+                {hasSelfAnalysis && (
                   <TouchableOpacity 
                     style={[styles.micButtonChat, isRecordingChat && styles.micButtonChatActive]}
-                    onPress={() => {
+                    {...(Platform.OS === 'web' ? { 'data-recording-button': true } : {})}
+                    onPress={(e) => {
+                      if (Platform.OS === 'web') {
+                        e.stopPropagation(); // Prevent triggering global click handler
+                      }
                       if (isRecordingChat) {
                         stopChatRecognition();
                       } else {
@@ -1813,9 +1390,15 @@ export default function App() {
                       }
                     }}
                   >
-                    <Text style={styles.micIconChat}>
-                      {isRecordingChat ? '🔴' : '🎤'}
-                    </Text>
+                    {isRecordingChat ? (
+                      <Text style={styles.micIconChat}>🔴</Text>
+                    ) : (
+                      <Image 
+                        source={micIcon} 
+                        style={styles.micImage}
+                        resizeMode="contain"
+                      />
+                    )}
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity 
@@ -1843,11 +1426,52 @@ export default function App() {
             <View style={styles.sectionContainer}>
               <TouchableOpacity 
                 style={styles.fullWidthButton}
-                onPress={() => {
-                  if (hasSelfAnalysis) {
-                    setCurrentScreen('MyAnalyses');
-                  } else {
-                    handleSelfAnalysis();
+                onPress={async () => {
+                  console.log('=== KENDI ANALIZIM BUTTON CLICKED ===');
+                  console.log('hasSelfAnalysis state:', hasSelfAnalysis);
+                  console.log('Current email:', email);
+                  
+                  // Double-check by making a fresh API call
+                  try {
+                    const response = await fetch(`${API_URL}/v1/user/analyses`, {
+                      headers: {
+                        'x-user-email': email,
+                      },
+                    });
+                    
+                    if (response.ok) {
+                      const data = await response.json();
+                      const selfAnalyses = (data.analyses || []).filter(
+                        (a: any) => a.analysis_type === 'self' && a.status === 'completed'
+                      );
+                      const hasAnalysisNow = selfAnalyses.length > 0;
+                      
+                      console.log('Fresh API check - Has self analysis:', hasAnalysisNow);
+                      
+                      if (hasAnalysisNow) {
+                        console.log('User HAS self analysis, navigating to MyAnalyses');
+                        setHasSelfAnalysis(true); // Update state
+                        setCurrentScreen('MyAnalyses');
+                      } else {
+                        console.log('No self analysis found, starting new one');
+                        handleSelfAnalysis();
+                      }
+                    } else {
+                      // Fallback to state if API fails
+                      if (hasSelfAnalysis) {
+                        setCurrentScreen('MyAnalyses');
+                      } else {
+                        handleSelfAnalysis();
+                      }
+                    }
+                  } catch (error) {
+                    console.error('Error checking analyses:', error);
+                    // Fallback to state if API fails
+                    if (hasSelfAnalysis) {
+                      setCurrentScreen('MyAnalyses');
+                    } else {
+                      handleSelfAnalysis();
+                    }
                   }
                 }}
               >
@@ -1868,10 +1492,82 @@ export default function App() {
                   <Text style={styles.analysisButtonText}>➕ Yeni Analiz</Text>
                 </TouchableOpacity>
                 
+                {/* Show drafts first */}
+                {personDrafts.map((draft) => (
+                  <View key={draft.id} style={styles.draftContainer}>
+                    <TouchableOpacity 
+                      style={[styles.analysisButton, styles.draftButton]}
+                      onPress={() => {
+                        setContinueDraft(draft);
+                        setCurrentScreen('newPersonAnalysis');
+                      }}
+                    >
+                      <Text style={styles.draftBadge}>TASLAK</Text>
+                      <Text style={styles.analysisButtonText}>{draft.personName}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.draftMenuButton}
+                      onPress={() => setShowDraftMenu(showDraftMenu === draft.id ? null : draft.id)}
+                      {...(Platform.OS === 'web' ? { 'data-draft-menu-button': true } : {})}
+                    >
+                      <Text style={styles.draftMenuIcon}>⋮</Text>
+                    </TouchableOpacity>
+                    
+                    {showDraftMenu === draft.id && (
+                      <View 
+                        style={styles.draftMenu}
+                        {...(Platform.OS === 'web' ? { 'data-draft-menu': true } : {})}
+                      >
+                        <TouchableOpacity
+                          style={styles.draftMenuItem}
+                          onPress={() => {
+                            setContinueDraft(draft);
+                            setCurrentScreen('newPersonAnalysis');
+                            setShowDraftMenu(null);
+                          }}
+                        >
+                          <Text style={styles.draftMenuText}>Analize devam et</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.draftMenuItem}
+                          onPress={async () => {
+                            // Delete draft
+                            try {
+                              let draftsJson;
+                              if (Platform.OS === 'web') {
+                                draftsJson = localStorage.getItem('personAnalysisDrafts');
+                              } else {
+                                const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+                                draftsJson = await AsyncStorage.getItem('personAnalysisDrafts');
+                              }
+                              const drafts = draftsJson ? JSON.parse(draftsJson) : [];
+                              const updatedDrafts = drafts.filter((d: any) => d.id !== draft.id);
+                              
+                              if (Platform.OS === 'web') {
+                                localStorage.setItem('personAnalysisDrafts', JSON.stringify(updatedDrafts));
+                              } else {
+                                const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+                                await AsyncStorage.setItem('personAnalysisDrafts', JSON.stringify(updatedDrafts));
+                              }
+                              
+                              setPersonDrafts(updatedDrafts.filter((d: any) => d.status === 'draft'));
+                              setShowDraftMenu(null);
+                            } catch (error) {
+                              console.error('Error deleting draft:', error);
+                            }
+                          }}
+                        >
+                          <Text style={[styles.draftMenuText, { color: '#EF4444' }]}>Sil</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                ))}
+                
                 {/* Show recent person analyses */}
-                {personAnalyses.slice(0, 8).map((person, index) => (
+                {personAnalyses.slice(0, 8 - personDrafts.length).map((person, index) => (
                   <TouchableOpacity 
-                    key={index}
+                    key={`analysis-${index}`}
                     style={styles.analysisButton}
                     onPress={() => {
                       // Navigate to person's analysis
@@ -2118,13 +1814,18 @@ const styles = StyleSheet.create({
   profileButton: {
     width: 48,
     height: 48,
-    borderRadius: 3,
-    backgroundColor: '#F1F5F9',
+    borderRadius: 24, // Make it circular
+    backgroundColor: 'rgb(96, 187, 202)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   profileIcon: {
     fontSize: 24,
+  },
+  profileInitial: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
   profileImage: {
     width: 40,
@@ -2153,11 +1854,18 @@ const styles = StyleSheet.create({
     right: 24,
     backgroundColor: '#FFFFFF',
     borderRadius: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
+    ...Platform.select({
+      web: {
+        boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 5,
+      },
+    }),
     zIndex: 1000,
     minWidth: 150,
   },
@@ -2177,11 +1885,18 @@ const styles = StyleSheet.create({
     right: 24,
     backgroundColor: '#FFFFFF',
     borderRadius: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
+    ...Platform.select({
+      web: {
+        boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 5,
+      },
+    }),
     zIndex: 1000,
     minWidth: 200,
   },
@@ -2232,8 +1947,8 @@ const styles = StyleSheet.create({
   },
   aiChatInputContainer: {
     position: 'relative',
-    width: 400,
-    maxWidth: '100%',
+    width: '100%',
+    maxWidth: 400,
   },
   aiChatTextArea: {
     width: '100%',
@@ -2249,7 +1964,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   aiChatTextAreaDisabled: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
     opacity: 0.9,
   },
   micButtonChat: {
@@ -2259,15 +1974,18 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
   },
   micButtonChatActive: {
-    backgroundColor: '#FCA5A5',
+    // No background for active state
   },
   micIconChat: {
     fontSize: 18,
+  },
+  micImage: {
+    width: 20,
+    height: 20,
   },
   aiChatSendButton: {
     position: 'absolute',
@@ -2317,6 +2035,61 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#1E293B',
+  },
+  draftContainer: {
+    position: 'relative',
+  },
+  draftButton: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FCD34D',
+    paddingTop: 8,
+  },
+  draftBadge: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  draftMenuButton: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    padding: 8,
+    width: 32,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  draftMenuIcon: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#374151',
+  },
+  draftMenu: {
+    position: 'absolute',
+    top: 40,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 1000,
+    minWidth: 150,
+  },
+  draftMenuItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  draftMenuText: {
+    fontSize: 14,
+    color: '#374151',
   },
   fullWidthButton: {
     width: '100%',

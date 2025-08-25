@@ -293,7 +293,12 @@
 /* Prevent scrolling when dragging */
 .ranking-container.touch-dragging {
   touch-action: none;
-  overflow: hidden;
+  -webkit-touch-callout: none;
+}
+
+.ranking-container.touch-dragging .ranking-slots-container {
+  overflow: hidden !important;
+  touch-action: none !important;
 }
 
 .ranking-container.touch-dragging * {

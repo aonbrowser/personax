@@ -34,7 +34,7 @@ interface FormAnswers {
 }
 
 // Cache buster: Updated at 2024-01-20 15:45
-export default function NewFormsScreen({ navigation, route }: any) {
+export default function NewFormsScreen({ navigation, route, activeRecordingType, setActiveRecordingType, stopAnyActiveRecording }: any) {
   // Check for edit mode params
   const editMode = route?.params?.editMode || false;
   const existingForm1Data = route?.params?.existingForm1Data || {};
@@ -81,6 +81,34 @@ export default function NewFormsScreen({ navigation, route }: any) {
     3: 'Davranış & Anlatı'
   };
 
+
+  // Add global click handler to stop recording when clicking outside
+  useEffect(() => {
+    if (Platform.OS === 'web' && isRecording) {
+      const handleGlobalClick = (event: MouseEvent) => {
+        const target = event.target as HTMLElement;
+        
+        // Check if click is on a mic button, text input, or their children
+        const isMicButton = target.closest('[data-mic-button]');
+        const isTextInput = target.closest('[data-text-input]');
+        
+        // If clicking outside mic button and text input, stop recording
+        if (!isMicButton && !isTextInput) {
+          stopSpeechRecognition();
+        }
+      };
+      
+      // Add listener with a small delay to avoid immediate triggering
+      const timeoutId = setTimeout(() => {
+        document.addEventListener('click', handleGlobalClick);
+      }, 100);
+      
+      return () => {
+        clearTimeout(timeoutId);
+        document.removeEventListener('click', handleGlobalClick);
+      };
+    }
+  }, [isRecording]);
 
   useEffect(() => {
     // If in edit mode, load existing data
@@ -271,11 +299,22 @@ export default function NewFormsScreen({ navigation, route }: any) {
   const loadAnswers = async () => {
     try {
       const storageKey = `form${currentForm}_answers`;
-      console.log(`Loading answers for ${storageKey}`);
+      console.log(`=== LOADING ANSWERS FOR ${storageKey} ===`);
       let saved = null;
+      
+      // IMPORTANT: Form answers should ALWAYS persist between sessions
+      // They are only cleared when:
+      // 1. User logs out
+      // 2. User switches to a different account
+      // They should NEVER be cleared after completing an analysis
       
       if (Platform.OS === 'web') {
         saved = localStorage.getItem(storageKey);
+        // Also log all form data in localStorage for debugging
+        console.log('All form data in localStorage:');
+        console.log('form1_answers:', localStorage.getItem('form1_answers') ? 'EXISTS' : 'NOT FOUND');
+        console.log('form2_answers:', localStorage.getItem('form2_answers') ? 'EXISTS' : 'NOT FOUND');
+        console.log('form3_answers:', localStorage.getItem('form3_answers') ? 'EXISTS' : 'NOT FOUND');
       } else {
         saved = await AsyncStorage.getItem(storageKey);
       }
@@ -283,9 +322,10 @@ export default function NewFormsScreen({ navigation, route }: any) {
       if (saved) {
         const parsedAnswers = JSON.parse(saved);
         console.log(`Found ${Object.keys(parsedAnswers).length} saved answers for form ${currentForm}`);
+        console.log('Saved answers keys:', Object.keys(parsedAnswers));
         setAnswers(parsedAnswers);
       } else {
-        console.log(`No saved answers found for form ${currentForm}`);
+        console.log(`NO SAVED ANSWERS found for form ${currentForm}`);
         setAnswers({});
       }
     } catch (error) {
@@ -297,25 +337,12 @@ export default function NewFormsScreen({ navigation, route }: any) {
   const shouldShowItem = (item: FormItem): boolean => {
     if (!item.conditional_on) return true;
     
-    // Special handling for NOT conditions (e.g., "F3_SABOTAGE_AWARENESS!=Hayır")
+    // Special handling for NOT conditions
     if (item.conditional_on.includes('!=')) {
       const [condId, condValue] = item.conditional_on.split('!=');
       const parentAnswer = answers[condId];
       
-      // Debug log for F3_SABOTAGE_PATTERNS
-      if (item.id === 'F3_SABOTAGE_PATTERNS') {
-        console.log('=== F3_SABOTAGE_PATTERNS VISIBILITY CHECK ===');
-        console.log('Condition:', item.conditional_on);
-        console.log('Parent ID:', condId);
-        console.log('Condition value (should NOT be):', condValue);
-        console.log('Parent answer (raw):', parentAnswer);
-        console.log('Parent answer type:', typeof parentAnswer);
-      }
-      
       if (parentAnswer === undefined || parentAnswer === null || parentAnswer === '') {
-        if (item.id === 'F3_SABOTAGE_PATTERNS') {
-          console.log('Result: HIDDEN (no answer yet)');
-        }
         return false; // Hide if no answer yet
       }
       
@@ -324,14 +351,6 @@ export default function NewFormsScreen({ navigation, route }: any) {
         const options = parentItem.options_tr.split('|');
         const answerIndex = typeof parentAnswer === 'string' ? parseInt(parentAnswer) : parentAnswer;
         const selectedOption = options[answerIndex]?.trim();
-        
-        if (item.id === 'F3_SABOTAGE_PATTERNS') {
-          console.log('Parent options:', options);
-          console.log('Answer index:', answerIndex);
-          console.log('Selected option:', selectedOption);
-          console.log('Should show?:', selectedOption !== condValue);
-          console.log('=== END CHECK ===');
-        }
         
         return selectedOption !== condValue; // Show if NOT equal to condValue
       }
@@ -396,17 +415,7 @@ export default function NewFormsScreen({ navigation, route }: any) {
           const selectedOption = options[valueIndex]?.trim();
           shouldShow = selectedOption !== condValue;
           
-          // Debug log for F3_SABOTAGE_PATTERNS
-          if (depItem.id === 'F3_SABOTAGE_PATTERNS') {
-            console.log('Dependency check:', {
-              parentId: itemId,
-              value,
-              valueIndex,
-              selectedOption,
-              condValue,
-              shouldShow
-            });
-          }
+          // Check dependency
         }
       }
       
@@ -435,6 +444,11 @@ export default function NewFormsScreen({ navigation, route }: any) {
 
   // Speech-to-Text functions
   const startSpeechRecognition = useCallback((itemId: string) => {
+    // Stop any other active recording first
+    if (activeRecordingType && activeRecordingType !== `form-${itemId}`) {
+      stopAnyActiveRecording?.();
+    }
+    
     if (!speechRecognitionAvailable) {
       Alert.alert('Uyarı', 'Ses tanıma özelliği bu tarayıcıda desteklenmiyor');
       return;
@@ -479,6 +493,7 @@ export default function NewFormsScreen({ navigation, route }: any) {
 
     recognition.onstart = () => {
       setIsRecording(itemId);
+      setActiveRecordingType?.(`form-${itemId}`);
       console.log('Speech recognition started for:', itemId);
     };
 
@@ -547,6 +562,7 @@ export default function NewFormsScreen({ navigation, route }: any) {
 
   const stopSpeechRecognition = () => {
     setIsRecording(null); // Set this first to prevent restart
+    setActiveRecordingType?.(null);
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -689,10 +705,12 @@ export default function NewFormsScreen({ navigation, route }: any) {
                 numberOfLines={4}
                 placeholder="Cevabınızı yazın..."
                 placeholderTextColor="#94A3B8"
+                {...(Platform.OS === 'web' ? { 'data-text-input': true } : {})}
               />
               {speechRecognitionAvailable && (
                 <TouchableOpacity
                   style={[styles.micButtonInline, isRecording === item.id && styles.micButtonInlineActive]}
+                  {...(Platform.OS === 'web' ? { 'data-mic-button': true } : {})}
                   onPress={() => {
                     if (isRecording === item.id) {
                       stopSpeechRecognition();
@@ -701,9 +719,15 @@ export default function NewFormsScreen({ navigation, route }: any) {
                     }
                   }}
                 >
-                  <Text style={styles.micIcon}>
-                    {isRecording === item.id ? '🔴' : '🎤'}
-                  </Text>
+                  {isRecording === item.id ? (
+                    <Text style={styles.micIcon}>🔴</Text>
+                  ) : (
+                    <Image 
+                      source={require('../assets/images/mic.png')} 
+                      style={styles.micImageIcon}
+                      resizeMode="contain"
+                    />
+                  )}
                 </TouchableOpacity>
               )}
             </View>
@@ -839,7 +863,7 @@ export default function NewFormsScreen({ navigation, route }: any) {
         const multiChoiceOptions = item.options_tr.split('|').map(opt => opt.trim());
         const selectedOptions = Array.isArray(value) ? value : [];
         const maxSelections = (item.id === 'F3_SABOTAGE_PATTERNS' || item.id === 'F3_COPING_MECHANISMS') ? 4 : 999;
-        const isLastOptionExclusive = item.id === 'F3_COPING_MECHANISMS'; // For "none of the above" logic
+        const isLastOptionExclusive = item.id === 'F3_COPING_MECHANISMS' || item.id === 'F3_SABOTAGE_PATTERNS'; // For "none of the above" logic
         
         return (
           <View style={styles.multipleChoiceContainer}>
@@ -882,9 +906,7 @@ export default function NewFormsScreen({ navigation, route }: any) {
             })}
             {(item.id === 'F3_SABOTAGE_PATTERNS' || item.id === 'F3_COPING_MECHANISMS') && (
               <Text style={styles.selectionHint}>
-                {item.id === 'F3_COPING_MECHANISMS' 
-                  ? `(En fazla 4 seçim yapabilirsiniz. Son seçenek diğerlerini iptal eder.)`
-                  : `(En fazla 4 seçim yapabilirsiniz.)`}
+                (En fazla 4 seçim yapabilirsiniz. Son seçenek diğerlerini iptal eder.)
               </Text>
             )}
           </View>
@@ -1093,6 +1115,9 @@ export default function NewFormsScreen({ navigation, route }: any) {
   const prepareAnalysisData = async () => {
     console.log('Preparing analysis data...');
     
+    // Save current form's answers first (Form 3)
+    await saveAnswers();
+    
     // Gather all form answers
     let form1Answers = {};
     let form2Answers = {};
@@ -1117,11 +1142,20 @@ export default function NewFormsScreen({ navigation, route }: any) {
         form3Answers = f3 ? JSON.parse(f3) : {};
       }
       
-      console.log('Form data loaded:', {
-        form1: Object.keys(form1Answers).length,
-        form2: Object.keys(form2Answers).length,
-        form3: Object.keys(form3Answers).length
-      });
+      console.log('=== FORM DATA LOADED FOR ANALYSIS ===');
+      console.log('Form1 answers:', Object.keys(form1Answers).length, 'items');
+      console.log('Form2 answers:', Object.keys(form2Answers).length, 'items');
+      console.log('Form3 answers:', Object.keys(form3Answers).length, 'items');
+      
+      if (form1Answers && Object.keys(form1Answers).length > 0) {
+        console.log('Form1 sample data:', Object.keys(form1Answers).slice(0, 5));
+      }
+      if (form2Answers && Object.keys(form2Answers).length > 0) {
+        console.log('Form2 sample data:', Object.keys(form2Answers).slice(0, 5));
+      }
+      if (form3Answers && Object.keys(form3Answers).length > 0) {
+        console.log('Form3 sample data:', Object.keys(form3Answers).slice(0, 5));
+      }
     } catch (error) {
       console.error('Error loading form data:', error);
     }
@@ -1129,12 +1163,27 @@ export default function NewFormsScreen({ navigation, route }: any) {
     // For web, directly navigate or use confirm dialog
     if (Platform.OS === 'web') {
       // Directly navigate to payment check
-      console.log('Navigating to PaymentCheck with data...');
-      navigation.navigate('PaymentCheck', {
-        form1Data: form1Answers,
-        form2Data: form2Answers,
-        form3Data: form3Answers
-      });
+      console.log('=== NAVIGATING TO PAYMENTCHECK ===');
+      console.log('User email from route params:', route?.params?.userEmail);
+      console.log('Passing form1Data:', Object.keys(form1Answers).length, 'items');
+      console.log('Passing form2Data:', Object.keys(form2Answers).length, 'items');
+      console.log('Passing form3Data:', Object.keys(form3Answers).length, 'items');
+      
+      console.log('Navigation object:', navigation);
+      console.log('Navigation.navigate type:', typeof navigation?.navigate);
+      
+      if (navigation && navigation.navigate) {
+        console.log('Calling navigation.navigate with PaymentCheck');
+        navigation.navigate('PaymentCheck', {
+          form1Data: form1Answers,
+          form2Data: form2Answers,
+          form3Data: form3Answers
+        });
+        console.log('navigation.navigate called successfully');
+      } else {
+        console.error('Navigation or navigate function not available!');
+        console.error('Navigation object:', navigation);
+      }
     } else {
       Alert.alert(
         '✅ Tüm Formlar Tamamlandı',
@@ -1681,15 +1730,18 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
   },
   micButtonInlineActive: {
-    backgroundColor: '#FCA5A5',
+    // No background for active state
   },
   micIcon: {
     fontSize: 18,
+  },
+  micImageIcon: {
+    width: 20,
+    height: 20,
   },
   micButton: {
     backgroundColor: '#E5E7EB',

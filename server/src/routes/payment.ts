@@ -6,7 +6,11 @@ const router = Router();
 
 // Check user's limits for a service
 router.get('/check-limits', async (req: Request, res: Response) => {
-  const userEmail = req.header('x-user-email') || 'test@test.com';
+  const userEmail = req.header('x-user-email');
+  
+  if (!userEmail || !userEmail.includes('@')) {
+    return res.status(401).json({ error: 'Unauthorized - email required', hasCredit: false });
+  }
   const serviceType = req.query.service_type as string;
   
   if (!serviceType) {
@@ -43,7 +47,14 @@ router.get('/check-limits', async (req: Request, res: Response) => {
       // Map service type to credit key
       switch (serviceType) {
         case 'self_analysis':
-          creditKey = 'self_reanalysis';
+          // Check if user has done self analysis before
+          const analysisCount = await pool.query(`
+            SELECT COUNT(*) as count FROM analysis_results
+            WHERE user_id = $1 AND analysis_type = 'self'
+          `, [userId]);
+          
+          // If no previous analysis, use self_analysis credit, otherwise self_reanalysis
+          creditKey = analysisCount.rows[0].count === 0 ? 'self_analysis' : 'self_reanalysis';
           break;
         case 'other_analysis':
           creditKey = 'other_analysis';
@@ -93,7 +104,11 @@ router.get('/check-limits', async (req: Request, res: Response) => {
 
 // Get pricing options based on user's current situation
 router.get('/pricing-options', async (req: Request, res: Response) => {
-  const userEmail = req.header('x-user-email') || 'test@test.com';
+  const userEmail = req.header('x-user-email');
+  
+  if (!userEmail || !userEmail.includes('@')) {
+    return res.status(401).json({ error: 'Unauthorized - email required' });
+  }
   const serviceType = req.query.service_type as string;
   
   if (!serviceType) {
@@ -185,7 +200,11 @@ router.get('/pricing-options', async (req: Request, res: Response) => {
 
 // Purchase a new subscription
 router.post('/purchase-subscription', async (req: Request, res: Response) => {
-  const userEmail = req.header('x-user-email') || 'test@test.com';
+  const userEmail = req.header('x-user-email');
+  
+  if (!userEmail || !userEmail.includes('@')) {
+    return res.status(401).json({ error: 'Unauthorized - email required' });
+  }
   const { planId } = req.body;
   
   if (!planId) {
@@ -254,7 +273,11 @@ router.post('/purchase-subscription', async (req: Request, res: Response) => {
 
 // Purchase PAYG service
 router.post('/purchase-payg', async (req: Request, res: Response) => {
-  const userEmail = req.header('x-user-email') || 'test@test.com';
+  const userEmail = req.header('x-user-email');
+  
+  if (!userEmail || !userEmail.includes('@')) {
+    return res.status(401).json({ error: 'Unauthorized - email required' });
+  }
   const { serviceType, quantity = 1 } = req.body;
   
   if (!serviceType) {
@@ -312,7 +335,11 @@ router.post('/purchase-payg', async (req: Request, res: Response) => {
 
 // Validate In-App Purchase
 router.post('/validate-purchase', async (req: Request, res: Response) => {
-  const userEmail = req.header('x-user-email') || 'test@test.com';
+  const userEmail = req.header('x-user-email');
+  
+  if (!userEmail || !userEmail.includes('@')) {
+    return res.status(401).json({ error: 'Unauthorized - email required' });
+  }
   const { platform, productId, transactionId, receipt, purchaseToken } = req.body;
   
   try {
@@ -424,7 +451,11 @@ router.post('/validate-purchase', async (req: Request, res: Response) => {
 
 // Validate and apply coupon code
 router.post('/validate-coupon', async (req: Request, res: Response) => {
-  const userEmail = req.header('x-user-email') || 'test@test.com';
+  const userEmail = req.header('x-user-email');
+  
+  if (!userEmail || !userEmail.includes('@')) {
+    return res.status(401).json({ error: 'Unauthorized - email required', valid: false });
+  }
   const { couponCode, serviceType } = req.body;
   
   if (!couponCode) {
@@ -510,6 +541,7 @@ router.post('/validate-coupon', async (req: Request, res: Response) => {
         coupon.plan_id || 'standard', 
         endDate,
         JSON.stringify({
+          self_analysis: plan.self_analysis_limit || 1, // Add self_analysis credit
           self_reanalysis: plan.self_reanalysis_limit,
           other_analysis: plan.other_analysis_limit,
           relationship_analysis: plan.relationship_analysis_limit,
@@ -566,7 +598,11 @@ router.post('/validate-coupon', async (req: Request, res: Response) => {
 
 // Use credits from subscription
 router.post('/use-credits', async (req: Request, res: Response) => {
-  const userEmail = req.header('x-user-email') || 'test@test.com';
+  const userEmail = req.header('x-user-email');
+  
+  if (!userEmail || !userEmail.includes('@')) {
+    return res.status(401).json({ error: 'Unauthorized - email required' });
+  }
   const { serviceType, subscriptionId } = req.body;
   
   if (!serviceType) {

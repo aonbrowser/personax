@@ -9,9 +9,11 @@ import {
   Alert,
   Platform,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import Markdown from 'react-native-markdown-display';
-import { downloadPDF } from '../utils/pdfGenerator';
+import { generatePDFFromBackend } from '../utils/backendPdfExport';
+import { API_URL } from '../config';
 
 interface AnalysisResultScreenProps {
   navigation: any;
@@ -23,6 +25,8 @@ interface AnalysisResultScreenProps {
       };
       markdown?: string;
       analysisType?: string;
+      analysisId?: string;
+      userEmail?: string;
     };
   };
 }
@@ -31,8 +35,12 @@ export default function AnalysisResultScreen({ navigation, route }: AnalysisResu
   // Support both old format (result.markdown) and new format (direct markdown)
   const markdown = route.params?.result?.markdown || route.params?.markdown;
   const analysisType = route.params?.analysisType || 'self';
+  const analysisId = route.params?.analysisId;
+  const userEmail = route.params?.userEmail;
   const scrollViewRef = useRef<ScrollView>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [userInfo, setUserInfo] = useState<any>(null);
+  const [loadingUserInfo, setLoadingUserInfo] = useState(true);
   
   // Parse markdown into blocks by main headings (## )
   const parseMarkdownIntoBlocks = (text: string) => {
@@ -49,6 +57,50 @@ export default function AnalysisResultScreen({ navigation, route }: AnalysisResu
   
   const blocks = parseMarkdownIntoBlocks(markdown);
   
+  // Fetch user info and form data when component mounts
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      if (!analysisId || !userEmail) {
+        console.log('No analysisId or userEmail, skipping user info fetch');
+        setLoadingUserInfo(false);
+        return;
+      }
+      
+      try {
+        const response = await fetch(`${API_URL}/v1/user/analyses/${analysisId}`, {
+          headers: {
+            'x-user-email': userEmail,
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const analysis = data.analysis;
+          
+          // Extract user info from form1_data
+          if (analysis && analysis.form1_data) {
+            const form1 = analysis.form1_data;
+            const userDetails = {
+              email: userEmail,
+              age: form1.F1_AGE || 'Belirtilmemiş',
+              gender: form1.F1_GENDER === '0' ? 'Erkek' : 
+                      form1.F1_GENDER === '1' ? 'Kadın' : 
+                      form1.F1_GENDER === '2' ? 'Diğer' : 'Belirtilmemiş',
+              createdAt: analysis.created_at
+            };
+            setUserInfo(userDetails);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user info:', error);
+      }
+      
+      setLoadingUserInfo(false);
+    };
+    
+    fetchUserInfo();
+  }, [analysisId, userEmail]);
+  
   const handleScroll = (event: any) => {
     const offsetY = event.nativeEvent.contentOffset.y;
     setShowScrollTop(offsetY > 100);
@@ -63,7 +115,7 @@ export default function AnalysisResultScreen({ navigation, route }: AnalysisResu
     
     if (Platform.OS === 'web') {
       try {
-        const success = await downloadPDF(markdown);
+        const success = await generatePDFFromBackend(markdown);
         if (success) {
           Alert.alert('Başarılı', 'PDF başarıyla indirildi.');
         } else {
@@ -78,169 +130,20 @@ export default function AnalysisResultScreen({ navigation, route }: AnalysisResu
     }
   };
   
-  const handleCopyToClipboard = () => {
-    if (Platform.OS === 'web') {
-      navigator.clipboard.writeText(markdown).then(() => {
-        Alert.alert('Başarılı', 'Analiz metni panoya kopyalandı!');
-      }).catch(() => {
-        Alert.alert('Hata', 'Metin kopyalanamadı.');
-      });
-    } else {
-      Alert.alert('Bilgi', 'Bu özellik sadece web versiyonunda kullanılabilir.');
-    }
+  const handleDiscussWithCoach = () => {
+    // TODO: Navigate to coach discussion screen when implemented
+    Alert.alert(
+      'Cogni Coach', 
+      'Coach tartışma özelliği yakında eklenecek!',
+      [{ text: 'Tamam', style: 'default' }]
+    );
+    // Future implementation:
+    // navigation.navigate('CoachChat', {
+    //   analysisMarkdown: markdown,
+    //   analysisType: analysisType
+    // });
   };
   
-  const handlePrint = () => {
-    if (Platform.OS === 'web') {
-      // Create a print-friendly version
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        const htmlContent = `
-          <!DOCTYPE html>
-          <html lang="tr">
-          <head>
-            <meta charset="UTF-8">
-            <title>Cogni Coach - Analiz Raporu</title>
-            <style>
-              @page {
-                size: A4;
-                margin: 15mm;
-              }
-              body {
-                font-family: Arial, sans-serif;
-                font-size: 11pt;
-                line-height: 1.6;
-                color: #000;
-                max-width: 210mm;
-                margin: 0 auto;
-                padding: 20px;
-              }
-              .header {
-                text-align: center;
-                margin-bottom: 30px;
-                padding-bottom: 20px;
-                border-bottom: 2px solid #e5e7eb;
-              }
-              .header h1 {
-                color: #60BBCA;
-                font-size: 24pt;
-                margin: 0 0 10px 0;
-              }
-              .header h2 {
-                color: #2d3748;
-                font-size: 18pt;
-                margin: 0 0 10px 0;
-              }
-              .header .date {
-                color: #718096;
-                font-size: 10pt;
-              }
-              h1 {
-                font-size: 18pt;
-                color: #1a202c;
-                margin-top: 20pt;
-                margin-bottom: 10pt;
-                page-break-after: avoid;
-              }
-              h2 {
-                font-size: 14pt;
-                color: #2d3748;
-                margin-top: 16pt;
-                margin-bottom: 8pt;
-                page-break-after: avoid;
-              }
-              h3 {
-                font-size: 12pt;
-                color: #4a5568;
-                margin-top: 12pt;
-                margin-bottom: 6pt;
-                page-break-after: avoid;
-              }
-              p {
-                margin: 8pt 0;
-                text-align: justify;
-                orphans: 3;
-                widows: 3;
-                page-break-inside: avoid;
-              }
-              ul, ol {
-                margin: 8pt 0;
-                padding-left: 20pt;
-                page-break-inside: avoid;
-              }
-              li {
-                margin: 4pt 0;
-                page-break-inside: avoid;
-              }
-              strong {
-                font-weight: bold;
-                color: #1a202c;
-              }
-              .footer {
-                margin-top: 40px;
-                padding-top: 20px;
-                border-top: 1px solid #e5e7eb;
-                text-align: center;
-                color: #718096;
-                font-size: 9pt;
-              }
-              @media print {
-                .no-print {
-                  display: none !important;
-                }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <h1>Cogni Coach</h1>
-              <h2>Kişisel Analiz Raporu</h2>
-              <div class="date">${new Date().toLocaleDateString('tr-TR', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}</div>
-            </div>
-            <div class="content">
-              ${markdown
-                .replace(/^# (.*?)$/gm, '<h1>$1</h1>')
-                .replace(/^## (.*?)$/gm, '<h2>$1</h2>')
-                .replace(/^### (.*?)$/gm, '<h3>$1</h3>')
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/^\- (.*?)$/gm, '<li>$1</li>')
-                .replace(/(<li>.*?<\/li>\n?)+/g, '<ul>$&</ul>')
-                .replace(/\n\n/g, '</p><p>')
-                .replace(/^([^<])/gm, '<p>$1')
-                .replace(/([^>])$/gm, '$1</p>')
-                .replace(/<p><\/p>/g, '')
-                .replace(/<p>(<h[123]>)/g, '$1')
-                .replace(/(<\/h[123]>)<\/p>/g, '$1')
-              }
-            </div>
-            <div class="footer">
-              <p>© ${new Date().getFullYear()} Cogni Coach - Tüm hakları saklıdır.</p>
-              <p>Bu rapor kişisel kullanım içindir.</p>
-            </div>
-            <script>
-              window.onload = function() {
-                window.print();
-                window.onafterprint = function() {
-                  window.close();
-                };
-              };
-            </script>
-          </body>
-          </html>
-        `;
-        
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
-      }
-    } else {
-      Alert.alert('Bilgi', 'Yazdırma özelliği sadece web versiyonunda kullanılabilir.');
-    }
-  };
   
   // Custom markdown styles
   const markdownStyles = {
@@ -326,36 +229,7 @@ export default function AnalysisResultScreen({ navigation, route }: AnalysisResu
         <View style={styles.headerSpacer} />
       </View>
       
-      <View style={{ flex: 1 }}>
-        {Platform.OS === 'web' && (
-          <View style={styles.actionButtonsContainer}>
-            <TouchableOpacity 
-              style={styles.actionButton} 
-              onPress={handleDownloadPDF}
-            >
-              <Text style={styles.actionButtonIcon}>📄</Text>
-              <Text style={styles.actionButtonText}>PDF İndir</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.actionButton} 
-              onPress={handleCopyToClipboard}
-            >
-              <Text style={styles.actionButtonIcon}>📋</Text>
-              <Text style={styles.actionButtonText}>Metni Kopyala</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.actionButton} 
-              onPress={handlePrint}
-            >
-              <Text style={styles.actionButtonIcon}>🖨️</Text>
-              <Text style={styles.actionButtonText}>Yazdır</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        
-        <ScrollView 
+      <ScrollView 
           ref={scrollViewRef}
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
@@ -363,6 +237,68 @@ export default function AnalysisResultScreen({ navigation, route }: AnalysisResu
           scrollEventThrottle={16}
           contentContainerStyle={styles.scrollContent}
         >
+          {/* User Info Header - Shows who this report belongs to */}
+          {userInfo && (
+            <View style={styles.userInfoContainer}>
+              <Text style={styles.userInfoTitle}>📋 Rapor Bilgileri</Text>
+              <View style={styles.userInfoContent}>
+                <View style={styles.userInfoRow}>
+                  <Text style={styles.userInfoLabel}>Email:</Text>
+                  <Text style={styles.userInfoValue}>{userInfo.email}</Text>
+                </View>
+                <View style={styles.userInfoRow}>
+                  <Text style={styles.userInfoLabel}>Yaş:</Text>
+                  <Text style={styles.userInfoValue}>{userInfo.age}</Text>
+                </View>
+                <View style={styles.userInfoRow}>
+                  <Text style={styles.userInfoLabel}>Cinsiyet:</Text>
+                  <Text style={styles.userInfoValue}>{userInfo.gender}</Text>
+                </View>
+                <View style={styles.userInfoRow}>
+                  <Text style={styles.userInfoLabel}>Oluşturulma:</Text>
+                  <Text style={styles.userInfoValue}>
+                    {userInfo.createdAt ? new Date(userInfo.createdAt).toLocaleString('tr-TR') : 'Bilinmiyor'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+          
+          {/* Loading indicator for user info */}
+          {loadingUserInfo && (
+            <View style={styles.userInfoContainer}>
+              <ActivityIndicator size="small" color="#4299E1" />
+              <Text style={styles.loadingText}>Kullanıcı bilgileri yükleniyor...</Text>
+            </View>
+          )}
+          
+          {/* Action buttons inside scrollview so they scroll with content */}
+          <View style={styles.actionButtonsContainer}>
+            <TouchableOpacity 
+              style={styles.actionButton} 
+              onPress={handleDownloadPDF}
+            >
+              <View style={styles.buttonContent}>
+                <Image 
+                  source={require('../assets/images/pdf.png')} 
+                  style={styles.pdfIcon}
+                  resizeMode="contain"
+                />
+                <Text style={styles.actionButtonText}>PDF OLARAK İNDİR</Text>
+              </View>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.actionButton, styles.coachButton]} 
+              onPress={handleDiscussWithCoach}
+            >
+              <View style={styles.buttonContent}>
+                <Text style={styles.actionButtonIcon}>💬</Text>
+                <Text style={[styles.actionButtonText, styles.coachButtonText]}>Cogni Coach ile Tartış</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+          
           {blocks.map((block, index) => (
             <View key={block.id}>
               <View style={styles.markdownContainer}>
@@ -375,15 +311,14 @@ export default function AnalysisResultScreen({ navigation, route }: AnalysisResu
           ))}
         </ScrollView>
         
-        {Platform.OS !== 'web' && showScrollTop && (
-          <TouchableOpacity 
-            style={styles.mobileScrollButton}
-            onPress={scrollToTop}
-          >
-            <Text style={styles.scrollToTopIcon}>↑</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      {Platform.OS !== 'web' && showScrollTop && (
+        <TouchableOpacity 
+          style={styles.mobileScrollButton}
+          onPress={scrollToTop}
+        >
+          <Text style={styles.scrollToTopIcon}>↑</Text>
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
@@ -497,27 +432,56 @@ const styles = StyleSheet.create({
     color: '#718096',
   },
   actionButtonsContainer: {
-    marginBottom: 16,
+    flexDirection: 'column',
+    marginBottom: 20,
+    gap: 10,
+    width: '100%',
   },
   actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E5E7EB',
     borderRadius: 3,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    marginBottom: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+      },
+      default: {
+        elevation: 1,
+      },
+    }),
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  coachButton: {
+    backgroundColor: 'rgb(66, 153, 225)',
+    borderColor: 'rgb(66, 153, 225)',
   },
   actionButtonIcon: {
     fontSize: 18,
     marginRight: 8,
   },
+  pdfIcon: {
+    width: 20,
+    height: 20,
+    marginRight: 8,
+  },
   actionButtonText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#1E293B',
+  },
+  coachButtonText: {
+    color: '#FFFFFF',
   },
   blockSpacing: {
     marginTop: 25,
@@ -549,5 +513,47 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#FFFFFF',
+  },
+  userInfoContainer: {
+    backgroundColor: '#F0F9FF',
+    borderRadius: 3,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+  },
+  userInfoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E40AF',
+    marginBottom: 12,
+  },
+  userInfoContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 3,
+    padding: 12,
+  },
+  userInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  userInfoLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  userInfoValue: {
+    fontSize: 14,
+    color: '#111827',
+    fontWeight: '600',
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 8,
+    textAlign: 'center',
   },
 });
