@@ -187,7 +187,10 @@ function processNewFormStructure(payload: any) {
   });
   
   // Convert form3 to item format, handling DISC combined questions
-  const form3Items = Object.entries(processedForm3).map(([id, response]) => {
+  // Filter out separate DISC MOST/LEAST items as they're already combined
+  const form3Items = Object.entries(processedForm3)
+    .filter(([id, _]) => !id.endsWith('_MOST') && !id.endsWith('_LEAST'))
+    .map(([id, response]) => {
     // Check if this is a combined DISC question
     if (id.startsWith('F3_DISC_') && typeof response === 'object' && response !== null && 'most' in response) {
       // Get DISC options for this question
@@ -220,10 +223,62 @@ function processNewFormStructure(payload: any) {
       };
     }
     
+    // Handle other Form3 SingleChoice questions
+    let responseLabel = String(response || '');
+    
+    if (id === 'F3_SABOTAGE_AWARENESS' && typeof response === 'string') {
+      const sabotageOptions = ['Hayır', 'Evet', 'Bazen'];
+      const index = parseInt(response);
+      if (!isNaN(index) && sabotageOptions[index]) {
+        responseLabel = sabotageOptions[index];
+      }
+    } else if (id === 'F3_SOMATIC_01' && typeof response === 'string') {
+      const somaticOptions = ['Hiç', 'Hafif', 'Orta', 'Ciddi'];
+      const index = parseInt(response);
+      if (!isNaN(index) && somaticOptions[index]) {
+        responseLabel = somaticOptions[index];
+      }
+    } else if ((id === 'F3_SOMATIC_02' || id === 'F3_COG_DIST_01') && Array.isArray(response)) {
+      // MultiSelect options mapping
+      const optionsMap = {
+        'F3_SOMATIC_02': ['Baş ağrısı', 'Sırt/boyun ağrısı', 'Mide problemleri', 'Uyku bozuklukları', 'Yorgunluk', 'Hiçbiri'],
+        'F3_COG_DIST_01': ['Her şey ya siyah ya beyaz', 'Küçük şeyleri büyütme', 'Zihin okuma', 'Felaketleştirme', 'Kişiselleştirme', 'Hiçbiri']
+      };
+      
+      const options = optionsMap[id] || [];
+      const selectedLabels = response.map(idx => {
+        const index = parseInt(idx);
+        return options[index] || idx;
+      });
+      responseLabel = selectedLabels.join(', ');
+    } else if ((id === 'S3_CONFLICT_1' || id === 'S3_CONFLICT_2') && Array.isArray(response)) {
+      // Conflict style options
+      const conflictOptions = ['Rekabet', 'İşbirliği', 'Uzlaşma', 'Kaçınma', 'Uyum'];
+      const selectedLabels = response.map(idx => {
+        const index = parseInt(idx);
+        return conflictOptions[index] || idx;
+      });
+      responseLabel = selectedLabels.join(', ');
+    } else if ((id === 'F3_SABOTAGE_PATTERNS' || id === 'F3_COPING_MECHANISMS') && Array.isArray(response)) {
+      // Handle ranking questions
+      const optionsMap = {
+        'F3_SABOTAGE_PATTERNS': ['Erteleme', 'Mükemmeli bekleme', 'Fazla analiz', 'Dikkat dağınıklığı', 'Korku/Şüphe'],
+        'F3_COPING_MECHANISMS': ['Spor/Egzersiz', 'Meditasyon', 'Sosyal destek', 'Yaratıcı aktiviteler', 'Profesyonel yardım']
+      };
+      
+      const options = optionsMap[id] || [];
+      const rankedLabels = response.map((idx, rank) => {
+        const index = parseInt(idx);
+        const label = options[index] || idx;
+        return `${rank + 1}. ${label}`;
+      });
+      responseLabel = rankedLabels.join(', ');
+    }
+    
     return {
       id,
       response_value: response,
-      response_label: String(response || '')
+      response_label: responseLabel
     };
   });
   
