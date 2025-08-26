@@ -119,10 +119,7 @@ export default function NewFormsScreen({ navigation, route, activeRecordingType,
     console.log('UserEmail:', userEmail);
     
     // If in edit mode with analysisId, fetch saved responses from database
-    if (editMode && analysisId && userEmail) {
-      console.log('Calling fetchSavedResponses...');
-      fetchSavedResponses();
-    } else if (editMode && analysisId) {
+    if (editMode && analysisId) {
       console.log('Edit mode: Loading analysis responses for ID:', analysisId);
       loadAnalysisResponses();
     } else if (editMode && (existingForm1Data || existingForm2Data || existingForm3Data)) {
@@ -163,89 +160,6 @@ export default function NewFormsScreen({ navigation, route, activeRecordingType,
     loadData();
   }, [currentForm]);
 
-  const fetchSavedResponses = async () => {
-    console.log('=== FETCHING SAVED RESPONSES ===');
-    console.log('AnalysisId:', analysisId);
-    console.log('UserEmail:', userEmail);
-    
-    try {
-      if (!analysisId || !userEmail) {
-        console.error('Missing analysisId or userEmail for fetching responses');
-        console.error('analysisId:', analysisId, 'userEmail:', userEmail);
-        return;
-      }
-
-      const url = `${API_URL}/v1/user/analyses/${analysisId}/responses`;
-      console.log('Fetching from URL:', url);
-
-      const response = await fetch(url, {
-        headers: {
-          'x-user-email': userEmail,
-        },
-      });
-
-      console.log('Response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Response not OK:', errorText);
-        throw new Error('Failed to fetch saved responses');
-      }
-
-      const data = await response.json();
-      console.log('Response data:', data);
-      console.log('Success:', data.success, 'Total responses:', data.totalResponses);
-      
-      if (data.success && data.responses) {
-        // Load form 1 responses
-        if (data.responses.form1 && Object.keys(data.responses.form1).length > 0) {
-          console.log('Loading Form 1:', Object.keys(data.responses.form1).length, 'responses');
-          await saveAnswersToStorage(1, data.responses.form1);
-          setAnswers(data.responses.form1);
-        }
-        
-        // Load form 2 responses
-        if (data.responses.form2 && Object.keys(data.responses.form2).length > 0) {
-          console.log('Loading Form 2:', Object.keys(data.responses.form2).length, 'responses');
-          await saveAnswersToStorage(2, data.responses.form2);
-        }
-        
-        // Load form 3 responses
-        if (data.responses.form3 && Object.keys(data.responses.form3).length > 0) {
-          console.log('Loading Form 3:', Object.keys(data.responses.form3).length, 'responses');
-          await saveAnswersToStorage(3, data.responses.form3);
-        }
-        
-        console.log(`Successfully loaded ${data.totalResponses} saved responses from analysis ${analysisId}`);
-        
-        // Verify data was actually saved to localStorage
-        if (Platform.OS === 'web') {
-          const form1Check = localStorage.getItem('form1_answers');
-          const form2Check = localStorage.getItem('form2_answers');
-          const form3Check = localStorage.getItem('form3_answers');
-          console.log('After saving - Form1 in localStorage:', form1Check ? 'EXISTS' : 'MISSING');
-          console.log('After saving - Form2 in localStorage:', form2Check ? 'EXISTS' : 'MISSING');
-          console.log('After saving - Form3 in localStorage:', form3Check ? 'EXISTS' : 'MISSING');
-        }
-        
-        Alert.alert('Başarılı', `${data.totalResponses} cevap yüklendi\n\nForm 1: ${Object.keys(data.responses.form1 || {}).length} soru\nForm 2: ${Object.keys(data.responses.form2 || {}).length} soru\nForm 3: ${Object.keys(data.responses.form3 || {}).length} soru`);
-        
-        // Start from form 1 for editing
-        setCurrentForm(1);
-        // Directly set the answers for form 1
-        if (data.responses.form1) {
-          console.log('Directly setting answers for form 1:', Object.keys(data.responses.form1).length, 'items');
-          setAnswers(data.responses.form1);
-        }
-      } else {
-        console.warn('No responses found in data:', data);
-      }
-    } catch (error) {
-      console.error('Error fetching saved responses:', error);
-      Alert.alert('Hata', 'Kaydedilmiş cevaplar yüklenirken bir hata oluştu');
-    }
-  };
-
   const loadAnalysisResponses = async () => {
     if (!analysisId) return;
     
@@ -269,27 +183,35 @@ export default function NewFormsScreen({ navigation, route, activeRecordingType,
       console.log('Loaded analysis responses:', data);
       
       // Save the loaded responses to storage
-      if (data.form1Data) {
+      if (data.form1Data && Object.keys(data.form1Data).length > 0) {
+        console.log('Loading Form 1:', Object.keys(data.form1Data).length, 'responses');
         await saveAnswersToStorage(1, data.form1Data);
       }
-      if (data.form2Data) {
+      if (data.form2Data && Object.keys(data.form2Data).length > 0) {
+        console.log('Loading Form 2:', Object.keys(data.form2Data).length, 'responses');
         await saveAnswersToStorage(2, data.form2Data);
       }
-      if (data.form3Data) {
+      if (data.form3Data && Object.keys(data.form3Data).length > 0) {
+        console.log('Loading Form 3:', Object.keys(data.form3Data).length, 'responses');
         await saveAnswersToStorage(3, data.form3Data);
       }
       
-      // Set current form and answers
+      // Start from form 1 for editing
+      setCurrentForm(1);
+      // Load form 1 answers
       if (data.form1Data && Object.keys(data.form1Data).length > 0) {
         setAnswers(data.form1Data);
-        setCurrentForm(1);
       } else if (data.form2Data && Object.keys(data.form2Data).length > 0) {
-        setAnswers(data.form2Data);
+        // If no form 1 data, start with form 2
         setCurrentForm(2);
+        setAnswers(data.form2Data);
       } else if (data.form3Data && Object.keys(data.form3Data).length > 0) {
-        setAnswers(data.form3Data);
+        // If only form 3 data, start with form 3
         setCurrentForm(3);
+        setAnswers(data.form3Data);
       }
+      
+      console.log('Successfully loaded responses from analysis', analysisId);
     } catch (error) {
       console.error('Error loading analysis responses:', error);
       Alert.alert('Hata', 'Cevaplar yüklenirken bir hata oluştu');

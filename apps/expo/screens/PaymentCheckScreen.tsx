@@ -273,15 +273,10 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
   };
   
   const continueWithAnalysis = (analysisData: any, subscriptionId?: string) => {
-    // If in edit mode, pass the analysisId to the API
-    const requestData = {
-      ...analysisData,
-      ...(editMode && analysisId ? { analysisId, updateExisting: true } : {})
-    };
     // Process Form3 DISC questions - combine MOST and LEAST into single answers
-    if (analysisData.form3) {
-      const processedForm3 = { ...analysisData.form3 };
-      const discQuestions = [];
+    let processedData = { ...analysisData };
+    if (processedData.form3) {
+      const processedForm3 = { ...processedData.form3 };
       
       // Find and combine DISC questions (F3_DISC_01 to F3_DISC_10)
       for (let i = 1; i <= 10; i++) {
@@ -305,14 +300,20 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
         }
       }
       
-      // Update analysisData with processed Form3
-      analysisData = {
-        ...analysisData,
+      // Update processedData with processed Form3
+      processedData = {
+        ...processedData,
         form3: processedForm3
       };
       
       console.log('Form3 after DISC processing:', Object.keys(processedForm3).length, 'items');
     }
+    
+    // If in edit mode, pass the analysisId to the API
+    const requestData = {
+      ...processedData,
+      ...(editMode && analysisId ? { analysisId, updateExisting: true } : {})
+    };
     
     // Navigate IMMEDIATELY
     console.log('NAVIGATING TO MyAnalyses NOW!');
