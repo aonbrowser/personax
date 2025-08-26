@@ -386,8 +386,7 @@ export default function MyAnalysesScreen({ navigation, userEmail: propUserEmail 
                     <Text style={styles.deleteIconText}>🗑</Text>
                   </TouchableOpacity>
                 </View>
-              </View>
-
+              
               {analysis.status === 'processing' && (
                 <View style={styles.processingContainer}>
                   <View style={styles.processingHeader}>
