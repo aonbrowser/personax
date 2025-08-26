@@ -35,6 +35,13 @@ interface FormAnswers {
 
 // Cache buster: Updated at 2024-01-20 15:45
 export default function NewFormsScreen({ navigation, route, activeRecordingType, setActiveRecordingType, stopAnyActiveRecording }: any) {
+  // Debug route params
+  console.log('=== NewFormsScreen Route Params ===');
+  console.log('All route params:', route?.params);
+  console.log('editMode from params:', route?.params?.editMode);
+  console.log('analysisId from params:', route?.params?.analysisId);
+  console.log('userEmail from params:', route?.params?.userEmail);
+  
   // Check for edit mode params
   const editMode = route?.params?.editMode || false;
   const existingForm1Data = route?.params?.existingForm1Data || {};

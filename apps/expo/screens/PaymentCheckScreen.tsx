@@ -273,6 +273,12 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
   };
   
   const continueWithAnalysis = (analysisData: any, subscriptionId?: string) => {
+    console.log('=== continueWithAnalysis called ===');
+    console.log('editMode:', editMode);
+    console.log('analysisId:', analysisId);
+    console.log('typeof editMode:', typeof editMode);
+    console.log('typeof analysisId:', typeof analysisId);
+    
     // Process Form3 DISC questions - combine MOST and LEAST into single answers
     let processedData = { ...analysisData };
     if (processedData.form3) {

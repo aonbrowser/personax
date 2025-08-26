@@ -366,7 +366,13 @@ export default function MyAnalysesScreen({ navigation, userEmail: propUserEmail 
                     style={styles.editButton}
                     onPress={() => {
                       console.log('Edit button clicked for analysis:', analysis.id);
-                      navigation.navigate('NewForms', { 
+                      console.log('Navigating with params:', {
+                        editMode: true,
+                        analysisId: analysis.id,
+                        userEmail: userEmail
+                      });
+                      // Use push instead of navigate to force new instance
+                      navigation.push('NewForms', { 
                         editMode: true,
                         analysisId: analysis.id,
                         userEmail: userEmail
