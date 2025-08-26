@@ -167,6 +167,8 @@ export async function runSelfAnalysis(payload:any, userLang:string, userId:strin
   
   // Handle new form structure
   let finalS0Items, finalS1Items;
+  let form2WithDetails, form3WithDetails; // Declare here for wider scope
+  
   if (processed.form1Items && processed.form2Items && processed.form3Items) {
     // New structure - Fetch item details from database and merge with responses
     console.log('[PIPELINE] Using new form structure');
@@ -203,7 +205,7 @@ export async function runSelfAnalysis(payload:any, userLang:string, userId:strin
     });
     
     // Merge form2 and form3 items with details
-    const form2WithDetails = processed.form2Items.map(respItem => {
+    form2WithDetails = processed.form2Items.map(respItem => {
       const details = itemMap.get(respItem.id) || {};
       // Special handling for DISC questions
       if (respItem.disc_most !== undefined && respItem.disc_least !== undefined) {
@@ -224,7 +226,7 @@ export async function runSelfAnalysis(payload:any, userLang:string, userId:strin
       };
     });
     
-    const form3WithDetails = processed.form3Items.map(respItem => {
+    form3WithDetails = processed.form3Items.map(respItem => {
       const details = itemMap.get(respItem.id) || {};
       // Special handling for DISC questions
       if (respItem.disc_most !== undefined && respItem.disc_least !== undefined) {
@@ -268,9 +270,13 @@ export async function runSelfAnalysis(payload:any, userLang:string, userId:strin
   
   if (processed.form1Items && processed.form2Items && processed.form3Items) {
     // New form structure - use FORM1_ITEMS, FORM2_ITEMS, FORM3_ITEMS
+    // Use the versions with database details (form2WithDetails and form3WithDetails)
+    const form2ItemsToSend = form2WithDetails || processed.form2Items;
+    const form3ItemsToSend = form3WithDetails || processed.form3Items;
+    
     const form1ItemsBlock = `<FORM1_ITEMS>\n${JSON.stringify(finalS0Items, null, 2)}\n</FORM1_ITEMS>`;
-    const form2ItemsBlock = `<FORM2_ITEMS>\n${JSON.stringify(processed.form2Items, null, 2)}\n</FORM2_ITEMS>`;
-    const form3ItemsBlock = `<FORM3_ITEMS>\n${JSON.stringify(processed.form3Items, null, 2)}\n</FORM3_ITEMS>`;
+    const form2ItemsBlock = `<FORM2_ITEMS>\n${JSON.stringify(form2ItemsToSend, null, 2)}\n</FORM2_ITEMS>`;
+    const form3ItemsBlock = `<FORM3_ITEMS>\n${JSON.stringify(form3ItemsToSend, null, 2)}\n</FORM3_ITEMS>`;
     dataBlocks = `${form1ItemsBlock}\n\n${form2ItemsBlock}\n\n${form3ItemsBlock}`;
   } else {
     // Old S0/S1 structure - keep backward compatibility
