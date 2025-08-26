@@ -54,8 +54,59 @@ export async function runSelfAnalysis(payload:any, userLang:string, userId:strin
     const isReanalysis = await UsageTracker.isReanalysis(userId, 'self_analysis', targetId);
     
     // Create or update analysis record
-    if (!currentAnalysisId) {
-      // Check if new form structure or old S0/S1 structure
+    if (currentAnalysisId) {
+      // Update existing analysis - set status to processing and update form data
+      console.log('[PIPELINE] Updating existing analysis:', currentAnalysisId);
+      
+      if (payload.form1 || payload.form2 || payload.form3) {
+        // Update with new form data
+        await pool.query(
+          `UPDATE analysis_results 
+           SET status = 'processing',
+               form1_data = $2,
+               form2_data = $3,
+               form3_data = $4,
+               updated_at = NOW()
+           WHERE id = $1`,
+          [currentAnalysisId, payload.form1 || {}, payload.form2 || {}, payload.form3 || {}]
+        );
+      } else {
+        // Update with S0/S1 data
+        const s0DataForStorage = {};
+        const s1DataForStorage = {};
+        
+        if (payload.s0Items && payload.s0Items.length > 0) {
+          payload.s0Items.forEach(item => {
+            if (item.response !== undefined) {
+              s0DataForStorage[item.id] = item.response;
+            }
+          });
+        } else {
+          Object.assign(s0DataForStorage, payload.s0 || {});
+        }
+        
+        if (payload.s1Items && payload.s1Items.length > 0) {
+          payload.s1Items.forEach(item => {
+            if (item.response !== undefined) {
+              s1DataForStorage[item.id] = item.response;
+            }
+          });
+        } else {
+          Object.assign(s1DataForStorage, payload.s1 || {});
+        }
+        
+        await pool.query(
+          `UPDATE analysis_results 
+           SET status = 'processing',
+               s0_data = $2,
+               s1_data = $3,
+               updated_at = NOW()
+           WHERE id = $1`,
+          [currentAnalysisId, s0DataForStorage, s1DataForStorage]
+        );
+      }
+    } else {
+      // Create new analysis
       if (payload.form1 || payload.form2 || payload.form3) {
         // NEW FORM STRUCTURE - Store form data separately
         console.log('[PIPELINE] Storing new form data in analysis_results');

@@ -167,13 +167,31 @@ router.post('/analyze/self', async (req, res) => {
   }
   
   // Log the exact data being passed to pipeline
+  // Check if this is an update to existing analysis
+  const analysisId = req.body.analysisId;
+  const updateExisting = req.body.updateExisting;
+  
+  if (updateExisting && analysisId) {
+    console.log('[ROUTE] Updating existing analysis:', analysisId);
+    
+    // Verify the analysis belongs to this user
+    const analysisCheck = await pool.query(
+      'SELECT id FROM analysis_results WHERE id = $1 AND user_id = $2',
+      [analysisId, userId]
+    );
+    
+    if (analysisCheck.rows.length === 0) {
+      return res.status(403).json({ error: 'Analysis not found or unauthorized' });
+    }
+  }
+  
   console.log('[ROUTE] Passing to runSelfAnalysis:');
   console.log('- Body keys:', Object.keys(req.body));
   if (req.body.form1) console.log('- Form1 sample:', Object.keys(req.body.form1).slice(0, 3));
   if (req.body.form2) console.log('- Form2 sample:', Object.keys(req.body.form2).slice(0, 3));
   if (req.body.form3) console.log('- Form3 sample:', Object.keys(req.body.form3).slice(0, 3));
   
-  const r = await runSelfAnalysis(req.body, lang, userId, targetId);
+  const r = await runSelfAnalysis(req.body, lang, userId, targetId, analysisId);
   res.json(r);
 });
 
@@ -435,6 +453,56 @@ router.get('/user/analyses/:id', async (req, res) => {
   } catch (error) {
     console.error('Error fetching analysis:', error);
     res.status(500).json({ error: 'Failed to fetch analysis' });
+  }
+});
+
+// Get analysis responses for editing
+router.get('/analyses/:id/responses', async (req, res) => {
+  const userEmail = req.header('x-user-email');
+  const analysisId = req.params.id;
+  
+  // Validate email
+  if (!userEmail || !userEmail.includes('@')) {
+    return res.status(401).json({ error: 'Unauthorized - invalid email' });
+  }
+  
+  // Validate UUID format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(analysisId)) {
+    return res.status(400).json({ error: 'Invalid analysis ID format' });
+  }
+  
+  try {
+    // Get user ID from email
+    const userResult = await pool.query('SELECT id FROM users WHERE email = $1', [userEmail]);
+    if (userResult.rows.length === 0) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+    
+    const userId = userResult.rows[0].id;
+    
+    // Get the analysis and verify ownership
+    const result = await pool.query(
+      `SELECT form1_data, form2_data, form3_data 
+       FROM analysis_results 
+       WHERE id = $1 AND user_id = $2`,
+      [analysisId, userId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Analysis not found or unauthorized' });
+    }
+    
+    const analysis = result.rows[0];
+    
+    res.json({
+      form1Data: analysis.form1_data || {},
+      form2Data: analysis.form2_data || {},
+      form3Data: analysis.form3_data || {}
+    });
+  } catch (error) {
+    console.error('Error fetching analysis responses:', error);
+    res.status(500).json({ error: 'Failed to fetch analysis responses' });
   }
 });
 

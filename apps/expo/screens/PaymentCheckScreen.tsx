@@ -31,7 +31,7 @@ interface PaymentCheckScreenProps {
 }
 
 export default function PaymentCheckScreen({ navigation, route }: PaymentCheckScreenProps) {
-  const { serviceType, formData, form1Data, form2Data, form3Data, onComplete, userEmail: routeEmail } = route.params;
+  const { serviceType, formData, form1Data, form2Data, form3Data, onComplete, userEmail: routeEmail, editMode, analysisId } = route.params;
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasCredit, setHasCredit] = useState(false);
@@ -273,6 +273,11 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
   };
   
   const continueWithAnalysis = (analysisData: any, subscriptionId?: string) => {
+    // If in edit mode, pass the analysisId to the API
+    const requestData = {
+      ...analysisData,
+      ...(editMode && analysisId ? { analysisId, updateExisting: true } : {})
+    };
     // Process Form3 DISC questions - combine MOST and LEAST into single answers
     if (analysisData.form3) {
       const processedForm3 = { ...analysisData.form3 };
@@ -311,6 +316,7 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
     
     // Navigate IMMEDIATELY
     console.log('NAVIGATING TO MyAnalyses NOW!');
+    console.log('Edit mode:', editMode, 'Analysis ID:', analysisId);
     navigation.navigate('MyAnalyses');
     console.log('Navigation called, should have navigated');
     
@@ -400,7 +406,7 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
           'x-user-lang': 'tr',
           'x-user-id': userEmail,
         },
-        body: JSON.stringify(analysisData),
+        body: JSON.stringify(requestData),
       }).then(response => {
         if (response.ok && onComplete) {
           response.json().then(result => {

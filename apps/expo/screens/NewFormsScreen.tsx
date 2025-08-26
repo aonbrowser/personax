@@ -42,6 +42,7 @@ export default function NewFormsScreen({ navigation, route, activeRecordingType,
   const existingForm3Data = route?.params?.existingForm3Data || {};
   const analysisId = route?.params?.analysisId;
   const userEmail = route?.params?.userEmail;
+  const [isLoadingResponses, setIsLoadingResponses] = useState(false);
 
   const [currentForm, setCurrentForm] = useState(1); // 1, 2, or 3
   const [items, setItems] = useState<FormItem[]>([]);
@@ -121,6 +122,9 @@ export default function NewFormsScreen({ navigation, route, activeRecordingType,
     if (editMode && analysisId && userEmail) {
       console.log('Calling fetchSavedResponses...');
       fetchSavedResponses();
+    } else if (editMode && analysisId) {
+      console.log('Edit mode: Loading analysis responses for ID:', analysisId);
+      loadAnalysisResponses();
     } else if (editMode && (existingForm1Data || existingForm2Data || existingForm3Data)) {
       console.log('Calling loadExistingData...');
       loadExistingData();
@@ -242,6 +246,58 @@ export default function NewFormsScreen({ navigation, route, activeRecordingType,
     }
   };
 
+  const loadAnalysisResponses = async () => {
+    if (!analysisId) return;
+    
+    setIsLoadingResponses(true);
+    try {
+      console.log('Fetching analysis responses for ID:', analysisId);
+      const response = await fetch(
+        `${API_URL}/v1/analyses/${analysisId}/responses`,
+        {
+          headers: {
+            'x-user-email': userEmail,
+          },
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to load analysis responses');
+      }
+      
+      const data = await response.json();
+      console.log('Loaded analysis responses:', data);
+      
+      // Save the loaded responses to storage
+      if (data.form1Data) {
+        await saveAnswersToStorage(1, data.form1Data);
+      }
+      if (data.form2Data) {
+        await saveAnswersToStorage(2, data.form2Data);
+      }
+      if (data.form3Data) {
+        await saveAnswersToStorage(3, data.form3Data);
+      }
+      
+      // Set current form and answers
+      if (data.form1Data && Object.keys(data.form1Data).length > 0) {
+        setAnswers(data.form1Data);
+        setCurrentForm(1);
+      } else if (data.form2Data && Object.keys(data.form2Data).length > 0) {
+        setAnswers(data.form2Data);
+        setCurrentForm(2);
+      } else if (data.form3Data && Object.keys(data.form3Data).length > 0) {
+        setAnswers(data.form3Data);
+        setCurrentForm(3);
+      }
+    } catch (error) {
+      console.error('Error loading analysis responses:', error);
+      Alert.alert('Hata', 'Cevaplar yüklenirken bir hata oluştu');
+    } finally {
+      setIsLoadingResponses(false);
+    }
+  };
+  
   const loadExistingData = async () => {
     try {
       // Load existing form data for editing
@@ -1277,7 +1333,9 @@ export default function NewFormsScreen({ navigation, route, activeRecordingType,
         navigation.navigate('PaymentCheck', {
           form1Data: form1Answers,
           form2Data: form2Answers,
-          form3Data: form3Answers
+          form3Data: form3Answers,
+          editMode: editMode,
+          analysisId: analysisId
         });
         console.log('navigation.navigate called successfully');
       } else {
@@ -1298,7 +1356,9 @@ export default function NewFormsScreen({ navigation, route, activeRecordingType,
             onPress: () => navigation.navigate('PaymentCheck', {
               form1Data: form1Answers,
               form2Data: form2Answers,
-              form3Data: form3Answers
+              form3Data: form3Answers,
+              editMode: editMode,
+              analysisId: analysisId
             })
           }
         ]
