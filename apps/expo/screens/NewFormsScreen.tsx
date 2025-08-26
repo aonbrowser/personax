@@ -1257,7 +1257,8 @@ export default function NewFormsScreen({ navigation, route, activeRecordingType,
           form2Data: form2Answers,
           form3Data: form3Answers,
           editMode: editMode,
-          analysisId: analysisId
+          analysisId: analysisId,
+          userEmail: userEmail
         });
         console.log('navigation.navigate called successfully');
       } else {
@@ -1280,7 +1281,8 @@ export default function NewFormsScreen({ navigation, route, activeRecordingType,
               form2Data: form2Answers,
               form3Data: form3Answers,
               editMode: editMode,
-              analysisId: analysisId
+              analysisId: analysisId,
+              userEmail: userEmail
             })
           }
         ]

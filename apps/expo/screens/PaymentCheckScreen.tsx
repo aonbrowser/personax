@@ -392,7 +392,11 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
         }
       }
       
-      console.log('Full data being sent (first 500 chars):', JSON.stringify(analysisData).substring(0, 500));
+      console.log('Full data being sent (first 500 chars):', JSON.stringify(requestData).substring(0, 500));
+      console.log('Edit mode in request:', editMode);
+      console.log('Analysis ID in request:', analysisId);
+      console.log('Update existing flag:', requestData.updateExisting);
+      console.log('Analysis ID in requestData:', requestData.analysisId);
       console.log('======================');
       
       // Set processing state before sending analysis
