@@ -311,15 +311,6 @@ export default function MyAnalysesScreen({ navigation, userEmail: propUserEmail 
         </View>
         <View style={{ width: 40 }} />
       </View>
-
-      {analyses.some(a => a.analysis_type === 'self') && (
-        <TouchableOpacity
-          style={styles.mainEditButton}
-          onPress={() => navigation.navigate('NewForms', { editMode: true })}
-        >
-          <Text style={styles.mainEditButtonText}>Cevapları Düzenle</Text>
-        </TouchableOpacity>
-      )}
       
       <ScrollView 
         style={styles.scrollView}
@@ -344,8 +335,9 @@ export default function MyAnalysesScreen({ navigation, userEmail: propUserEmail 
         ) : (
           analyses.map((analysis) => (
             <View key={analysis.id} style={styles.analysisCard}>
-              <View style={styles.cardHeader}>
-                <View style={styles.titleRow}>
+              {/* Top Row: Title + Date on left, Status on right */}
+              <View style={styles.topRow}>
+                <View style={styles.titleDateContainer}>
                   <TouchableOpacity
                     onPress={() => analysis.status === 'completed' ? viewAnalysis(analysis) : null}
                     disabled={analysis.status !== 'completed'}
@@ -356,18 +348,40 @@ export default function MyAnalysesScreen({ navigation, userEmail: propUserEmail 
                   </TouchableOpacity>
                   <Text style={styles.dateText}> • {formatDate(analysis.created_at)}</Text>
                 </View>
-                <View style={styles.statusRow}>
-                  <View style={styles.statusContainer}>
-                    <Text style={[styles.statusIcon, { color: getStatusColor(analysis.status) }]}>
-                      {analysis.status === 'completed' ? '✓ ' : analysis.status === 'error' ? '✕ ' : '⟳ '}
-                    </Text>
-                    <Text style={[styles.statusText, { color: getStatusColor(analysis.status) }]}>
-                      {getStatusText(analysis.status)}
-                    </Text>
-                  </View>
+                
+                <View style={styles.statusContainer}>
+                  <Text style={[styles.statusIcon, { color: getStatusColor(analysis.status) }]}>
+                    {analysis.status === 'completed' ? '✓ ' : analysis.status === 'error' ? '✕ ' : '⟳ '}
+                  </Text>
+                  <Text style={[styles.statusText, { color: getStatusColor(analysis.status) }]}>
+                    {getStatusText(analysis.status)}
+                  </Text>
+                </View>
+              </View>
+              
+              {/* Bottom Row: Edit button on left, Delete on right */}
+              <View style={styles.bottomRow}>
+                {analysis.analysis_type === 'self' && analysis.status === 'completed' ? (
                   <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => deleteAnalysis(analysis)}
+                    style={styles.editButton}
+                    onPress={() => {
+                      console.log('Edit button clicked for analysis:', analysis.id);
+                      navigation.navigate('NewForms', { 
+                        editMode: true,
+                        analysisId: analysis.id,
+                        userEmail: userEmail
+                      });
+                    }}
+                  >
+                    <Text style={styles.editButtonText}>✏️ Cevapları Düzenle</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View />
+                )}
+                
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={() => deleteAnalysis(analysis)}
                   >
                     <Text style={styles.deleteIconText}>🗑</Text>
                   </TouchableOpacity>
@@ -466,24 +480,6 @@ const styles = StyleSheet.create({
     color: '#1E293B',
     fontWeight: 'bold',
   },
-  mainEditButton: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 8,
-    borderRadius: 3,
-    alignItems: 'center',
-    alignSelf: 'center',
-  },
-  mainEditButtonText: {
-    color: '#1E293B',
-    fontSize: 14,
-    fontWeight: '500',
-  },
   scrollView: {
     flex: 1,
     paddingHorizontal: 16,
@@ -520,6 +516,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  bottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  titleDateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -542,9 +554,9 @@ const styles = StyleSheet.create({
   },
   statusRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
-    position: 'relative',
+    marginTop: 8,
   },
   statusContainer: {
     flexDirection: 'row',
@@ -558,9 +570,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
+  actionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  editButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgb(66, 153, 225)',
+    borderRadius: 3,
+  },
+  editButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#FFFFFF',
+  },
   deleteButton: {
-    padding: 4,
-    marginLeft: 8,
+    padding: 8,
     backgroundColor: 'transparent',
   },
   deleteIcon: {

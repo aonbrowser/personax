@@ -41,6 +41,7 @@ export default function NewFormsScreen({ navigation, route, activeRecordingType,
   const existingForm2Data = route?.params?.existingForm2Data || {};
   const existingForm3Data = route?.params?.existingForm3Data || {};
   const analysisId = route?.params?.analysisId;
+  const userEmail = route?.params?.userEmail;
 
   const [currentForm, setCurrentForm] = useState(1); // 1, 2, or 3
   const [items, setItems] = useState<FormItem[]>([]);
@@ -111,11 +112,21 @@ export default function NewFormsScreen({ navigation, route, activeRecordingType,
   }, [isRecording]);
 
   useEffect(() => {
-    // If in edit mode, load existing data
-    if (editMode && (existingForm1Data || existingForm2Data || existingForm3Data)) {
+    console.log('=== NewFormsScreen useEffect ===');
+    console.log('EditMode:', editMode);
+    console.log('AnalysisId:', analysisId);
+    console.log('UserEmail:', userEmail);
+    
+    // If in edit mode with analysisId, fetch saved responses from database
+    if (editMode && analysisId && userEmail) {
+      console.log('Calling fetchSavedResponses...');
+      fetchSavedResponses();
+    } else if (editMode && (existingForm1Data || existingForm2Data || existingForm3Data)) {
+      console.log('Calling loadExistingData...');
       loadExistingData();
     } else {
       // Otherwise check if there are saved answers and resume from last incomplete form
+      console.log('Checking saved progress...');
       checkSavedProgress();
     }
     
@@ -142,10 +153,94 @@ export default function NewFormsScreen({ navigation, route, activeRecordingType,
   useEffect(() => {
     const loadData = async () => {
       await loadFormItems();
+      // Always load answers for the current form
       await loadAnswers();
     };
     loadData();
   }, [currentForm]);
+
+  const fetchSavedResponses = async () => {
+    console.log('=== FETCHING SAVED RESPONSES ===');
+    console.log('AnalysisId:', analysisId);
+    console.log('UserEmail:', userEmail);
+    
+    try {
+      if (!analysisId || !userEmail) {
+        console.error('Missing analysisId or userEmail for fetching responses');
+        console.error('analysisId:', analysisId, 'userEmail:', userEmail);
+        return;
+      }
+
+      const url = `${API_URL}/v1/user/analyses/${analysisId}/responses`;
+      console.log('Fetching from URL:', url);
+
+      const response = await fetch(url, {
+        headers: {
+          'x-user-email': userEmail,
+        },
+      });
+
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Response not OK:', errorText);
+        throw new Error('Failed to fetch saved responses');
+      }
+
+      const data = await response.json();
+      console.log('Response data:', data);
+      console.log('Success:', data.success, 'Total responses:', data.totalResponses);
+      
+      if (data.success && data.responses) {
+        // Load form 1 responses
+        if (data.responses.form1 && Object.keys(data.responses.form1).length > 0) {
+          console.log('Loading Form 1:', Object.keys(data.responses.form1).length, 'responses');
+          await saveAnswersToStorage(1, data.responses.form1);
+          setAnswers(data.responses.form1);
+        }
+        
+        // Load form 2 responses
+        if (data.responses.form2 && Object.keys(data.responses.form2).length > 0) {
+          console.log('Loading Form 2:', Object.keys(data.responses.form2).length, 'responses');
+          await saveAnswersToStorage(2, data.responses.form2);
+        }
+        
+        // Load form 3 responses
+        if (data.responses.form3 && Object.keys(data.responses.form3).length > 0) {
+          console.log('Loading Form 3:', Object.keys(data.responses.form3).length, 'responses');
+          await saveAnswersToStorage(3, data.responses.form3);
+        }
+        
+        console.log(`Successfully loaded ${data.totalResponses} saved responses from analysis ${analysisId}`);
+        
+        // Verify data was actually saved to localStorage
+        if (Platform.OS === 'web') {
+          const form1Check = localStorage.getItem('form1_answers');
+          const form2Check = localStorage.getItem('form2_answers');
+          const form3Check = localStorage.getItem('form3_answers');
+          console.log('After saving - Form1 in localStorage:', form1Check ? 'EXISTS' : 'MISSING');
+          console.log('After saving - Form2 in localStorage:', form2Check ? 'EXISTS' : 'MISSING');
+          console.log('After saving - Form3 in localStorage:', form3Check ? 'EXISTS' : 'MISSING');
+        }
+        
+        Alert.alert('Başarılı', `${data.totalResponses} cevap yüklendi\n\nForm 1: ${Object.keys(data.responses.form1 || {}).length} soru\nForm 2: ${Object.keys(data.responses.form2 || {}).length} soru\nForm 3: ${Object.keys(data.responses.form3 || {}).length} soru`);
+        
+        // Start from form 1 for editing
+        setCurrentForm(1);
+        // Directly set the answers for form 1
+        if (data.responses.form1) {
+          console.log('Directly setting answers for form 1:', Object.keys(data.responses.form1).length, 'items');
+          setAnswers(data.responses.form1);
+        }
+      } else {
+        console.warn('No responses found in data:', data);
+      }
+    } catch (error) {
+      console.error('Error fetching saved responses:', error);
+      Alert.alert('Hata', 'Kaydedilmiş cevaplar yüklenirken bir hata oluştu');
+    }
+  };
 
   const loadExistingData = async () => {
     try {
@@ -297,6 +392,7 @@ export default function NewFormsScreen({ navigation, route, activeRecordingType,
   };
 
   const loadAnswers = async () => {
+    console.log('=== LOADING ANSWERS FOR FORM', currentForm, '===');
     try {
       const storageKey = `form${currentForm}_answers`;
       console.log(`=== LOADING ANSWERS FOR ${storageKey} ===`);
@@ -323,6 +419,10 @@ export default function NewFormsScreen({ navigation, route, activeRecordingType,
         const parsedAnswers = JSON.parse(saved);
         console.log(`Found ${Object.keys(parsedAnswers).length} saved answers for form ${currentForm}`);
         console.log('Saved answers keys:', Object.keys(parsedAnswers));
+        console.log('Sample values:', {
+          firstKey: Object.keys(parsedAnswers)[0],
+          firstValue: parsedAnswers[Object.keys(parsedAnswers)[0]]
+        });
         setAnswers(parsedAnswers);
       } else {
         console.log(`NO SAVED ANSWERS found for form ${currentForm}`);

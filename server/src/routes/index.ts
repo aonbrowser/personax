@@ -201,6 +201,87 @@ router.post('/coach', async (req, res) => {
   res.json(r);
 });
 
+// Get saved form responses for an analysis
+router.get('/user/analyses/:id/responses', async (req, res) => {
+  const userEmail = req.header('x-user-email');
+  const analysisId = req.params.id;
+  
+  // Validate email
+  if (!userEmail || !userEmail.includes('@')) {
+    return res.status(401).json({ error: 'Unauthorized - invalid email' });
+  }
+  
+  // Validate UUID format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(analysisId)) {
+    return res.status(400).json({ error: 'Invalid analysis ID format' });
+  }
+  
+  try {
+    // Get user ID from email
+    const userResult = await pool.query('SELECT id FROM users WHERE email = $1', [userEmail]);
+    if (userResult.rows.length === 0) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+    
+    const userId = userResult.rows[0].id;
+    
+    // Fetch responses - verify user ownership
+    const result = await pool.query(
+      `SELECT fr.item_id, fr.response_value, fr.response_label, fr.response_type, 
+              fr.disc_most, fr.disc_least, fr.form
+       FROM form_responses fr
+       WHERE fr.analysis_id = $1 AND fr.user_id = $2
+       ORDER BY fr.form, fr.item_id`,
+      [analysisId, userId]
+    );
+    
+    // Group responses by form
+    const responsesByForm = {
+      form1: {} as any,
+      form2: {} as any,
+      form3: {} as any
+    };
+    
+    result.rows.forEach(row => {
+      const formKey = row.form === 'Form1_Tanisalim' ? 'form1' :
+                     row.form === 'Form2_Kisilik' ? 'form2' :
+                     row.form === 'Form3_Davranis' ? 'form3' : null;
+      
+      if (formKey) {
+        // Parse JSON values if needed
+        let value = row.response_value;
+        try {
+          if (value && (value.startsWith('[') || value.startsWith('{'))) {
+            value = JSON.parse(value);
+          }
+        } catch (e) {
+          // Keep as string if not valid JSON
+        }
+        
+        // For DISC questions, include both most and least
+        if (row.response_type === 'DISC' && row.disc_most !== null && row.disc_least !== null) {
+          responsesByForm[formKey][row.item_id] = {
+            most: row.disc_most,
+            least: row.disc_least
+          };
+        } else {
+          responsesByForm[formKey][row.item_id] = value;
+        }
+      }
+    });
+    
+    res.json({ 
+      success: true,
+      responses: responsesByForm,
+      totalResponses: result.rows.length
+    });
+  } catch (error) {
+    console.error('Error fetching form responses:', error);
+    res.status(500).json({ error: 'Failed to fetch responses' });
+  }
+});
+
 // Simple admin endpoint for language incidents (paged)
 router.get('/admin/language-incidents', async (req, res) => {
   const limit = Math.max(1, Math.min(Number(req.query.limit)||50, 200));
