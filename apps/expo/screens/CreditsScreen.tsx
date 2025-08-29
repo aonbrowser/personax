@@ -34,6 +34,12 @@ interface Subscription {
     relationship_analysis?: number;
     coaching_tokens?: number;
   };
+  // Initial limits from plan
+  self_analysis_limit?: number;
+  self_reanalysis_limit?: number;
+  other_analysis_limit?: number;
+  relationship_analysis_limit?: number;
+  coaching_tokens_limit?: number;
 }
 
 interface MonthlyUsage {
@@ -106,24 +112,39 @@ export default function CreditsScreen({ navigation, route }: CreditsScreenProps)
 
   const getTotalCredits = () => {
     const totals = {
-      self_analysis: 0,
-      self_reanalysis: 0,
-      other_analysis: 0,
-      relationship_analysis: 0,
-      coaching_tokens: 0,
+      self_analysis: { remaining: 0, total: 0, used: 0 },
+      self_reanalysis: { remaining: 0, total: 0, used: 0 },
+      other_analysis: { remaining: 0, total: 0, used: 0 },
+      relationship_analysis: { remaining: 0, total: 0, used: 0 },
+      coaching_tokens: { remaining: 0, total: 0, used: 0 },
     };
 
     subscriptions
       .filter(sub => sub.status === 'active')
       .forEach(sub => {
+        // Add remaining credits
         if (sub.credits_remaining) {
-          totals.self_analysis += sub.credits_remaining.self_analysis || 0;
-          totals.self_reanalysis += sub.credits_remaining.self_reanalysis || 0;
-          totals.other_analysis += sub.credits_remaining.other_analysis || 0;
-          totals.relationship_analysis += sub.credits_remaining.relationship_analysis || 0;
-          totals.coaching_tokens += sub.credits_remaining.coaching_tokens || 0;
+          totals.self_analysis.remaining += sub.credits_remaining.self_analysis || 0;
+          totals.self_reanalysis.remaining += sub.credits_remaining.self_reanalysis || 0;
+          totals.other_analysis.remaining += sub.credits_remaining.other_analysis || 0;
+          totals.relationship_analysis.remaining += sub.credits_remaining.relationship_analysis || 0;
+          totals.coaching_tokens.remaining += sub.credits_remaining.coaching_tokens || 0;
         }
+        
+        // Add total limits
+        totals.self_analysis.total += sub.self_analysis_limit || 0;
+        totals.self_reanalysis.total += sub.self_reanalysis_limit || 0;
+        totals.other_analysis.total += sub.other_analysis_limit || 0;
+        totals.relationship_analysis.total += sub.relationship_analysis_limit || 0;
+        totals.coaching_tokens.total += sub.coaching_tokens_limit || 0;
       });
+
+    // Calculate used credits
+    totals.self_analysis.used = totals.self_analysis.total - totals.self_analysis.remaining;
+    totals.self_reanalysis.used = totals.self_reanalysis.total - totals.self_reanalysis.remaining;
+    totals.other_analysis.used = totals.other_analysis.total - totals.other_analysis.remaining;
+    totals.relationship_analysis.used = totals.relationship_analysis.total - totals.relationship_analysis.remaining;
+    totals.coaching_tokens.used = totals.coaching_tokens.total - totals.coaching_tokens.remaining;
 
     return totals;
   };
@@ -177,7 +198,19 @@ export default function CreditsScreen({ navigation, route }: CreditsScreenProps)
                   </View>
                   <View style={styles.creditInfo}>
                     <Text style={styles.creditLabel}>Kendi Analizi</Text>
-                    <Text style={styles.creditValue}>{totalCredits.self_analysis}</Text>
+                    <View style={styles.creditValueContainer}>
+                      <Text style={styles.creditValue}>{totalCredits.self_analysis.remaining}</Text>
+                      <Text style={styles.creditDivider}>/</Text>
+                      <Text style={styles.creditTotal}>{totalCredits.self_analysis.total}</Text>
+                    </View>
+                    <View style={styles.progressBar}>
+                      <View 
+                        style={[
+                          styles.progressFill, 
+                          { width: `${(totalCredits.self_analysis.remaining / totalCredits.self_analysis.total) * 100}%` }
+                        ]} 
+                      />
+                    </View>
                   </View>
                 </View>
 
@@ -187,7 +220,19 @@ export default function CreditsScreen({ navigation, route }: CreditsScreenProps)
                   </View>
                   <View style={styles.creditInfo}>
                     <Text style={styles.creditLabel}>Analiz Güncelleme</Text>
-                    <Text style={styles.creditValue}>{totalCredits.self_reanalysis}</Text>
+                    <View style={styles.creditValueContainer}>
+                      <Text style={styles.creditValue}>{totalCredits.self_reanalysis.remaining}</Text>
+                      <Text style={styles.creditDivider}>/</Text>
+                      <Text style={styles.creditTotal}>{totalCredits.self_reanalysis.total}</Text>
+                    </View>
+                    <View style={styles.progressBar}>
+                      <View 
+                        style={[
+                          styles.progressFill, 
+                          { width: `${(totalCredits.self_reanalysis.remaining / totalCredits.self_reanalysis.total) * 100}%` }
+                        ]} 
+                      />
+                    </View>
                   </View>
                 </View>
 
@@ -197,7 +242,19 @@ export default function CreditsScreen({ navigation, route }: CreditsScreenProps)
                   </View>
                   <View style={styles.creditInfo}>
                     <Text style={styles.creditLabel}>Kişi Analizi</Text>
-                    <Text style={styles.creditValue}>{totalCredits.other_analysis}</Text>
+                    <View style={styles.creditValueContainer}>
+                      <Text style={styles.creditValue}>{totalCredits.other_analysis.remaining}</Text>
+                      <Text style={styles.creditDivider}>/</Text>
+                      <Text style={styles.creditTotal}>{totalCredits.other_analysis.total}</Text>
+                    </View>
+                    <View style={styles.progressBar}>
+                      <View 
+                        style={[
+                          styles.progressFill, 
+                          { width: `${(totalCredits.other_analysis.remaining / totalCredits.other_analysis.total) * 100}%` }
+                        ]} 
+                      />
+                    </View>
                   </View>
                 </View>
 
@@ -207,7 +264,19 @@ export default function CreditsScreen({ navigation, route }: CreditsScreenProps)
                   </View>
                   <View style={styles.creditInfo}>
                     <Text style={styles.creditLabel}>İlişki Analizi</Text>
-                    <Text style={styles.creditValue}>{totalCredits.relationship_analysis}</Text>
+                    <View style={styles.creditValueContainer}>
+                      <Text style={styles.creditValue}>{totalCredits.relationship_analysis.remaining}</Text>
+                      <Text style={styles.creditDivider}>/</Text>
+                      <Text style={styles.creditTotal}>{totalCredits.relationship_analysis.total}</Text>
+                    </View>
+                    <View style={styles.progressBar}>
+                      <View 
+                        style={[
+                          styles.progressFill, 
+                          { width: `${(totalCredits.relationship_analysis.remaining / totalCredits.relationship_analysis.total) * 100}%` }
+                        ]} 
+                      />
+                    </View>
                   </View>
                 </View>
 
@@ -217,9 +286,23 @@ export default function CreditsScreen({ navigation, route }: CreditsScreenProps)
                   </View>
                   <View style={styles.creditInfo}>
                     <Text style={styles.creditLabel}>Koçluk Token</Text>
-                    <Text style={styles.creditValue}>
-                      {(totalCredits.coaching_tokens / 1000000).toFixed(1)}M
-                    </Text>
+                    <View style={styles.creditValueContainer}>
+                      <Text style={styles.creditValue}>
+                        {(totalCredits.coaching_tokens.remaining / 1000000).toFixed(1)}M
+                      </Text>
+                      <Text style={styles.creditDivider}>/</Text>
+                      <Text style={styles.creditTotal}>
+                        {(totalCredits.coaching_tokens.total / 1000000).toFixed(1)}M
+                      </Text>
+                    </View>
+                    <View style={styles.progressBar}>
+                      <View 
+                        style={[
+                          styles.progressFill, 
+                          { width: `${(totalCredits.coaching_tokens.remaining / totalCredits.coaching_tokens.total) * 100}%` }
+                        ]} 
+                      />
+                    </View>
                   </View>
                 </View>
               </>
@@ -303,35 +386,43 @@ export default function CreditsScreen({ navigation, route }: CreditsScreenProps)
                   <Text style={styles.expiryDate}>Bitiş: {formatDate(sub.end_date)}</Text>
                   
                   <View style={styles.creditsList}>
-                    {sub.credits_remaining.self_analysis !== undefined && (
+                    {sub.self_analysis_limit !== undefined && sub.self_analysis_limit > 0 && (
                       <View style={styles.creditsRow}>
                         <Text style={styles.creditsLabel}>Kendi Analizi:</Text>
-                        <Text style={styles.creditsValue}>{sub.credits_remaining.self_analysis}</Text>
+                        <Text style={styles.creditsDetailValue}>
+                          {sub.credits_remaining.self_analysis || 0}/{sub.self_analysis_limit}
+                        </Text>
                       </View>
                     )}
-                    {sub.credits_remaining.self_reanalysis !== undefined && (
+                    {sub.self_reanalysis_limit !== undefined && sub.self_reanalysis_limit > 0 && (
                       <View style={styles.creditsRow}>
                         <Text style={styles.creditsLabel}>Analiz Güncelleme:</Text>
-                        <Text style={styles.creditsValue}>{sub.credits_remaining.self_reanalysis}</Text>
+                        <Text style={styles.creditsDetailValue}>
+                          {sub.credits_remaining.self_reanalysis || 0}/{sub.self_reanalysis_limit}
+                        </Text>
                       </View>
                     )}
-                    {sub.credits_remaining.other_analysis !== undefined && (
+                    {sub.other_analysis_limit !== undefined && sub.other_analysis_limit > 0 && (
                       <View style={styles.creditsRow}>
                         <Text style={styles.creditsLabel}>Kişi Analizi:</Text>
-                        <Text style={styles.creditsValue}>{sub.credits_remaining.other_analysis}</Text>
+                        <Text style={styles.creditsDetailValue}>
+                          {sub.credits_remaining.other_analysis || 0}/{sub.other_analysis_limit}
+                        </Text>
                       </View>
                     )}
-                    {sub.credits_remaining.relationship_analysis !== undefined && (
+                    {sub.relationship_analysis_limit !== undefined && sub.relationship_analysis_limit > 0 && (
                       <View style={styles.creditsRow}>
                         <Text style={styles.creditsLabel}>İlişki Analizi:</Text>
-                        <Text style={styles.creditsValue}>{sub.credits_remaining.relationship_analysis}</Text>
+                        <Text style={styles.creditsDetailValue}>
+                          {sub.credits_remaining.relationship_analysis || 0}/{sub.relationship_analysis_limit}
+                        </Text>
                       </View>
                     )}
-                    {sub.credits_remaining.coaching_tokens !== undefined && (
+                    {sub.coaching_tokens_limit !== undefined && sub.coaching_tokens_limit > 0 && (
                       <View style={styles.creditsRow}>
                         <Text style={styles.creditsLabel}>Koçluk Token:</Text>
-                        <Text style={styles.creditsValue}>
-                          {(sub.credits_remaining.coaching_tokens / 1000000).toFixed(1)}M
+                        <Text style={styles.creditsDetailValue}>
+                          {((sub.credits_remaining.coaching_tokens || 0) / 1000000).toFixed(1)}M/{(sub.coaching_tokens_limit / 1000000).toFixed(1)}M
                         </Text>
                       </View>
                     )}
@@ -434,11 +525,38 @@ const styles = StyleSheet.create({
   creditLabel: {
     fontSize: 14,
     color: '#6B7280',
+    marginBottom: 4,
+  },
+  creditValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 8,
   },
   creditValue: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '700',
     color: 'rgb(66, 153, 225)',
+  },
+  creditDivider: {
+    fontSize: 18,
+    color: '#9CA3AF',
+    marginHorizontal: 4,
+  },
+  creditTotal: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  progressBar: {
+    height: 6,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: 'rgb(66, 153, 225)',
+    borderRadius: 3,
   },
   noCreditsBox: {
     alignItems: 'center',
@@ -544,6 +662,11 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   creditsValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgb(66, 153, 225)',
+  },
+  creditsDetailValue: {
     fontSize: 13,
     fontWeight: '600',
     color: 'rgb(66, 153, 225)',

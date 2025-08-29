@@ -29,9 +29,17 @@ router.get('/check-limits', async (req: Request, res: Response) => {
     
     const userId = userResult.rows[0].id;
     
-    // Get all active subscriptions
+    // Get all active subscriptions with plan details
     const subsResult = await pool.query(`
-      SELECT * FROM get_user_active_subscriptions($1)
+      SELECT 
+        sub.*,
+        sp.self_analysis_limit,
+        sp.self_reanalysis_limit,
+        sp.other_analysis_limit,
+        sp.relationship_analysis_limit,
+        sp.coaching_tokens_limit
+      FROM get_user_active_subscriptions($1) sub
+      LEFT JOIN subscription_plans sp ON sub.plan_id = sp.id
     `, [userId]);
     
     const subscriptions = subsResult.rows;
