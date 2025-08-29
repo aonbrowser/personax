@@ -1194,7 +1194,7 @@ export default function App() {
     if (currentScreen === 'Subscription') {
       return <SubscriptionScreen 
         navigation={{ 
-          goBack: () => setCurrentScreen('AccountInfo'),
+          goBack: () => setCurrentScreen('home'),
           navigate: (screen: string, params?: any) => {
             if (screen === 'PaymentCheck') {
               setPaymentParams(params);
@@ -1213,7 +1213,7 @@ export default function App() {
     if (currentScreen === 'Credits') {
       return <CreditsScreen 
         navigation={{ 
-          goBack: () => setCurrentScreen('AccountInfo'),
+          goBack: () => setCurrentScreen('home'),
           navigate: (screen: string, params?: any) => {
             if (screen === 'Subscription') {
               setCurrentScreen('Subscription');
@@ -1406,6 +1406,24 @@ export default function App() {
                 }}
               >
                 <Text style={styles.profileMenuItemText}>👤 Bilgilerim</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.profileMenuItem} 
+                onPress={() => {
+                  setShowProfileMenu(false);
+                  setCurrentScreen('Subscription');
+                }}
+              >
+                <Text style={styles.profileMenuItemText}>💎 Aboneliklerim</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.profileMenuItem} 
+                onPress={() => {
+                  setShowProfileMenu(false);
+                  setCurrentScreen('Credits');
+                }}
+              >
+                <Text style={styles.profileMenuItemText}>🎯 Kredilerim</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.profileMenuItem} onPress={handleLogout}>
                 <Text style={styles.profileMenuItemText}>🚪 Çıkış Yap</Text>

@@ -221,7 +221,7 @@ export default function SubscriptionScreen({ navigation, route }: SubscriptionSc
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Text style={styles.backArrow}>←</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Aboneliğim</Text>
+          <Text style={styles.headerTitle}>Aboneliklerim</Text>
           <View style={styles.headerSpacer} />
         </View>
         <View style={styles.loadingContainer}>
@@ -237,7 +237,7 @@ export default function SubscriptionScreen({ navigation, route }: SubscriptionSc
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Aboneliğim</Text>
+        <Text style={styles.headerTitle}>Aboneliklerim</Text>
         <View style={styles.headerSpacer} />
       </View>
 
