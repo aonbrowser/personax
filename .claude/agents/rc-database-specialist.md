@@ -1,5 +1,5 @@
 ---
-name: database-specialist
+name: rc-database-specialist
 description: Invoked for PostgreSQL database design, query optimization, migration strategies, and managing multi-language content storage for the Relate Coach platform
 model: opus
 tools: Read, Write, Edit, MultiEdit, Bash, Grep

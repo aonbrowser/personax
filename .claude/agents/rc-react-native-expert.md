@@ -1,5 +1,5 @@
 ---
-name: react-native-expert
+name: rc-react-native-expert
 description: Invoked for React Native/Expo development, cross-platform UI implementation, mobile-specific optimizations, and managing the unified codebase for iOS/Android/Web
 model: opus
 tools: Read, Write, Edit, MultiEdit, Grep, Glob

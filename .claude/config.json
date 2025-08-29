@@ -1,0 +1,11 @@
+{
+  "agents": {
+    "enabled": true,
+    "directory": ".claude/agents",
+    "default_model": "opus"
+  },
+  "project": {
+    "name": "PersonaX/Relate Coach",
+    "type": "Multi-language Personality Assessment Platform"
+  }
+}

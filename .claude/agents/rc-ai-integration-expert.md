@@ -1,5 +1,5 @@
 ---
-name: ai-integration-expert
+name: rc-ai-integration-expert
 description: Invoked for OpenAI API integration, prompt engineering, language validation systems, and AI pipeline optimization for the Relate Coach personality analysis features
 model: opus
 tools: Read, Write, Edit, MultiEdit, Grep, Glob

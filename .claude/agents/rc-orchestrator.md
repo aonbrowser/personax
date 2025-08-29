@@ -1,5 +1,5 @@
 ---
-name: orchestrator
+name: rc-orchestrator
 description: Main orchestration agent that coordinates other specialized agents based on task requirements, manages agent communication, and ensures efficient task completion
 model: opus
 tools: Task, TodoWrite, Read, Grep, Glob

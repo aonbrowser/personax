@@ -1,5 +1,5 @@
 ---
-name: code-reviewer
+name: rc-code-reviewer
 description: Invoked for comprehensive code reviews focusing on security, performance, maintainability, and adherence to TypeScript/Node.js/React Native best practices
 model: opus
 tools: Read, Grep, Glob

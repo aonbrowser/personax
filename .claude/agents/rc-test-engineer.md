@@ -1,5 +1,5 @@
 ---
-name: test-engineer
+name: rc-test-engineer
 description: Invoked for creating comprehensive test suites, implementing testing strategies, and ensuring code quality through unit, integration, and end-to-end testing
 model: opus
 tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob

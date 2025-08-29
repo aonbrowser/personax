@@ -1,5 +1,5 @@
 ---
-name: backend-architect
+name: rc-backend-architect
 description: Invoked for designing Node.js/Express API architecture, defining service boundaries, creating database schemas, and planning microservice decomposition for the Relate Coach platform
 model: opus
 tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob

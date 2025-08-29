@@ -1,5 +1,5 @@
 ---
-name: typescript-specialist
+name: rc-typescript-specialist
 description: Invoked for advanced TypeScript development, type system design, generic implementations, and ensuring type safety across the Node.js backend and React Native frontend
 model: opus
 tools: Read, Write, Edit, MultiEdit, Grep, Glob
