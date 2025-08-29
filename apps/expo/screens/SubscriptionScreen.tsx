@@ -50,43 +50,44 @@ interface PlanOption {
   features: string[];
 }
 
+// Real data from database - subscription_plans table
 const AVAILABLE_PLANS: PlanOption[] = [
   {
     id: 'standard',
     name: 'Standart Paket',
-    price: '₺99/ay',
+    price: '$20/ay', // Real price from DB: $20.00
     credits: {
       self_analysis: 1,
-      self_reanalysis: 5,
-      other_analysis: 3,
-      relationship_analysis: 2,
-      coaching_tokens: 1000000,
+      self_reanalysis: 2,  // Real from DB
+      other_analysis: 8,   // Real from DB
+      relationship_analysis: 8,  // Real from DB
+      coaching_tokens: 200000000,  // Real from DB: 200M tokens
     },
     features: [
       '1 Kendi Analizi',
-      '5 Analiz Güncelleme',
-      '3 Kişi Analizi',
-      '2 İlişki Analizi',
-      '1M Koçluk Token',
+      '2 Analiz Güncelleme',
+      '8 Kişi Analizi',
+      '8 İlişki Analizi',
+      '200M Koçluk Token',
     ],
   },
   {
     id: 'extra',
-    name: 'Ekstra Paket',
-    price: '₺299/ay',
+    name: 'Extra Paket',
+    price: '$50/ay', // Real price from DB: $50.00
     credits: {
       self_analysis: 1,
-      self_reanalysis: 20,
-      other_analysis: 10,
-      relationship_analysis: 5,
-      coaching_tokens: 5000000,
+      self_reanalysis: 5,  // Real from DB
+      other_analysis: 25,  // Real from DB
+      relationship_analysis: 25,  // Real from DB
+      coaching_tokens: 500000000,  // Real from DB: 500M tokens
     },
     features: [
       '1 Kendi Analizi',
-      '20 Analiz Güncelleme',
-      '10 Kişi Analizi',
-      '5 İlişki Analizi',
-      '5M Koçluk Token',
+      '5 Analiz Güncelleme',
+      '25 Kişi Analizi',
+      '25 İlişki Analizi',
+      '500M Koçluk Token',
     ],
   },
 ];
