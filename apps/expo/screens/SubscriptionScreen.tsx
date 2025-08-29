@@ -142,7 +142,7 @@ export default function SubscriptionScreen({ navigation, route }: SubscriptionSc
   const cancelSubscription = async (subscriptionId: string) => {
     setProcessing(true);
     try {
-      const response = await fetch(`${API_URL}/v1/subscriptions/${subscriptionId}/cancel`, {
+      const response = await fetch(`${API_URL}/v1/payment/subscriptions/${subscriptionId}/cancel`, {
         method: 'POST',
         headers: {
           'x-user-email': userEmail,
@@ -151,10 +151,14 @@ export default function SubscriptionScreen({ navigation, route }: SubscriptionSc
       });
 
       if (response.ok) {
-        Alert.alert('Başarılı', 'Aboneliğiniz iptal edildi.');
+        Alert.alert(
+          'Başarılı', 
+          'Aboneliğiniz iptal edildi. Mevcut dönem sonuna kadar tüm özelliklerden yararlanmaya devam edebilirsiniz.'
+        );
         await loadSubscriptions();
       } else {
-        Alert.alert('Hata', 'Abonelik iptal edilemedi.');
+        const errorData = await response.json();
+        Alert.alert('Hata', errorData.error || 'Abonelik iptal edilemedi.');
       }
     } catch (error) {
       console.error('Error canceling subscription:', error);
@@ -246,9 +250,9 @@ export default function SubscriptionScreen({ navigation, route }: SubscriptionSc
         {/* Active Subscriptions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Aktif Aboneliklerim</Text>
-          {subscriptions.filter(sub => sub.status === 'active').length > 0 ? (
+          {subscriptions.filter(sub => sub.status === 'active' || sub.status === 'cancelled').length > 0 ? (
             subscriptions
-              .filter(sub => sub.status === 'active')
+              .filter(sub => sub.status === 'active' || sub.status === 'cancelled')
               .map((sub, index) => (
                 <View key={sub.id || index} style={styles.subscriptionCard}>
                   <View style={styles.subscriptionHeader}>
@@ -272,13 +276,21 @@ export default function SubscriptionScreen({ navigation, route }: SubscriptionSc
                     </Text>
                   </View>
 
-                  <TouchableOpacity
-                    style={styles.cancelButton}
-                    onPress={() => handleCancelSubscription(sub.id)}
-                    disabled={processing}
-                  >
-                    <Text style={styles.cancelButtonText}>Aboneliği İptal Et</Text>
-                  </TouchableOpacity>
+                  {sub.status === 'active' ? (
+                    <TouchableOpacity
+                      style={styles.cancelButton}
+                      onPress={() => handleCancelSubscription(sub.id)}
+                      disabled={processing}
+                    >
+                      <Text style={styles.cancelButtonText}>Aboneliği İptal Et</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.cancelledInfo}>
+                      <Text style={styles.cancelledInfoText}>
+                        Bu abonelik iptal edildi. {formatDate(sub.end_date)} tarihine kadar kullanabilirsiniz.
+                      </Text>
+                    </View>
+                  )}
                 </View>
               ))
           ) : (
@@ -446,6 +458,17 @@ const styles = StyleSheet.create({
     color: '#DC2626',
     fontWeight: '600',
     fontSize: 14,
+  },
+  cancelledInfo: {
+    backgroundColor: '#FEF3C7',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 3,
+  },
+  cancelledInfoText: {
+    color: '#92400E',
+    fontSize: 13,
+    lineHeight: 18,
   },
   noSubscriptionBox: {
     backgroundColor: '#F3F4F6',

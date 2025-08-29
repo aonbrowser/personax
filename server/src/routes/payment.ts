@@ -146,10 +146,11 @@ router.post('/subscriptions/:subscriptionId/cancel', async (req: Request, res: R
     }
     
     // Cancel the subscription (it will remain active until end_date)
+    // Status becomes 'cancelled' but subscription remains usable until end_date
     await pool.query(`
       UPDATE user_subscriptions 
       SET status = 'cancelled',
-          cancelled_at = NOW()
+          updated_at = NOW()
       WHERE id = $1
     `, [subscriptionId]);
     
