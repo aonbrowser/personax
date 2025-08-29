@@ -58,53 +58,18 @@ export async function runSelfAnalysis(payload:any, userLang:string, userId:strin
       // Update existing analysis - set status to processing and update form data
       console.log('[PIPELINE] Updating existing analysis:', currentAnalysisId);
       
-      if (payload.form1 || payload.form2 || payload.form3) {
-        // Update with new form data
-        await pool.query(
-          `UPDATE analysis_results 
-           SET status = 'processing',
-               form1_data = $2,
-               form2_data = $3,
-               form3_data = $4,
-               updated_at = NOW()
-           WHERE id = $1`,
-          [currentAnalysisId, payload.form1 || {}, payload.form2 || {}, payload.form3 || {}]
-        );
-      } else {
-        // Update with S0/S1 data
-        const s0DataForStorage = {};
-        const s1DataForStorage = {};
-        
-        if (payload.s0Items && payload.s0Items.length > 0) {
-          payload.s0Items.forEach(item => {
-            if (item.response !== undefined) {
-              s0DataForStorage[item.id] = item.response;
-            }
-          });
-        } else {
-          Object.assign(s0DataForStorage, payload.s0 || {});
-        }
-        
-        if (payload.s1Items && payload.s1Items.length > 0) {
-          payload.s1Items.forEach(item => {
-            if (item.response !== undefined) {
-              s1DataForStorage[item.id] = item.response;
-            }
-          });
-        } else {
-          Object.assign(s1DataForStorage, payload.s1 || {});
-        }
-        
-        await pool.query(
-          `UPDATE analysis_results 
-           SET status = 'processing',
-               s0_data = $2,
-               s1_data = $3,
-               updated_at = NOW()
-           WHERE id = $1`,
-          [currentAnalysisId, s0DataForStorage, s1DataForStorage]
-        );
-      }
+      // Update with form data
+      await pool.query(
+        `UPDATE analysis_results 
+         SET status = 'processing',
+             form1_data = $2,
+             form2_data = $3,
+             form3_data = $4,
+             updated_at = NOW(),
+             completed_at = NULL
+         WHERE id = $1`,
+        [currentAnalysisId, payload.form1 || {}, payload.form2 || {}, payload.form3 || {}]
+      );
     } else {
       // Create new analysis
       if (payload.form1 || payload.form2 || payload.form3) {
@@ -396,6 +361,18 @@ export async function runSelfAnalysis(payload:any, userLang:string, userId:strin
   
   const blocks = parseIntoBlocks(cleanedContent);
   
+  // Add generation timestamp to the beginning of the report
+  const generationDate = new Date().toLocaleString('tr-TR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Istanbul'
+  });
+  
+  const timestampedContent = `*Bu rapor ${generationDate} tarihinde oluşturulmuştur.*\n\n---\n\n${cleanedContent}`;
+  
   // Update analysis record with result
   if (currentAnalysisId) {
     await pool.query(
@@ -408,10 +385,15 @@ export async function runSelfAnalysis(payload:any, userLang:string, userId:strin
            metadata = $4
        WHERE id = $5`,
       [
-        cleanedContent,
-        JSON.stringify(blocks),
+        timestampedContent,
+        JSON.stringify(parseIntoBlocks(timestampedContent)),
         lifecoachingNotes,
-        { language: targetLang, language_ok: languageOk },
+        { 
+          language: targetLang, 
+          language_ok: languageOk,
+          generated_at: new Date().toISOString(),
+          is_update: isReanalysis
+        },
         currentAnalysisId
       ]
     );
@@ -419,7 +401,7 @@ export async function runSelfAnalysis(payload:any, userLang:string, userId:strin
   
     const banner = languageOk ? null : "Bu rapor sizin dilinizde değil gibi görünüyor. Sistem yöneticilerimiz durumdan haberdar edildi. En yakın zamanda kendi dilinizde rapor vereceğiz.";
     return { 
-      markdown: cleanedContent, 
+      markdown: currentAnalysisId ? timestampedContent : cleanedContent, 
       language_ok: languageOk, 
       detected: languageOk ? targetLang : detected,
       banner,

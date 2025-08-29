@@ -23,6 +23,7 @@ interface AnalysisResult {
   result_markdown?: string;
   error_message?: string;
   created_at: string;
+  updated_at?: string;
   completed_at?: string;
   s0_data?: any;
   s1_data?: any;
@@ -36,6 +37,7 @@ export default function MyAnalysesScreen({ navigation, userEmail: propUserEmail 
   const [userEmail, setUserEmail] = useState(propUserEmail || '');
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [analysisToDelete, setAnalysisToDelete] = useState<AnalysisResult | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
     // CRITICAL: Only use prop email, never load from localStorage (security)
@@ -72,6 +74,15 @@ export default function MyAnalysesScreen({ navigation, userEmail: propUserEmail 
       return () => clearInterval(interval);
     }
   }, [analyses]);
+
+  // Real-time clock for time display updates
+  useEffect(() => {
+    const timeInterval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+    
+    return () => clearInterval(timeInterval);
+  }, []);
 
   const loadUserEmail = () => {
     // SECURITY: Don't load from localStorage, use prop email only
@@ -203,7 +214,7 @@ export default function MyAnalysesScreen({ navigation, userEmail: propUserEmail 
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    const now = new Date();
+    const now = currentTime; // Use live currentTime state
     const diff = now.getTime() - date.getTime();
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
@@ -225,7 +236,7 @@ export default function MyAnalysesScreen({ navigation, userEmail: propUserEmail 
 
   const getAnalysisTypeLabel = (type: string) => {
     switch (type) {
-      case 'self': return 'Kişisel Analiz';
+      case 'self': return 'Kendi Analizim';
       case 'other': return 'Başkası Analizi';
       case 'dyad': return 'İlişki Analizi';
       default: return type;
@@ -346,7 +357,7 @@ export default function MyAnalysesScreen({ navigation, userEmail: propUserEmail 
                       {getAnalysisTypeLabel(analysis.analysis_type)}
                     </Text>
                   </TouchableOpacity>
-                  <Text style={styles.dateText}> • {formatDate(analysis.created_at)}</Text>
+                  <Text style={styles.dateText}> • {formatDate(analysis.updated_at || analysis.created_at)}</Text>
                 </View>
                 
                 <View style={styles.statusContainer}>

@@ -340,20 +340,21 @@ router.get('/user/analyses', async (req, res) => {
   
   try {
     // First, update any processing analyses older than 8 minutes to error status
+    // Check against updated_at for retried/updated analyses, fall back to created_at for new ones
     await pool.query(
       `UPDATE analysis_results 
        SET status = 'error', 
            error_message = 'Analysis timed out after 8 minutes'
        WHERE user_id = $1 
          AND status = 'processing' 
-         AND created_at < NOW() - INTERVAL '8 minutes'`,
+         AND COALESCE(updated_at, created_at) < NOW() - INTERVAL '8 minutes'`,
       [userId]
     );
     
     // Then fetch all analyses
     const { rows } = await pool.query(
       `SELECT id, analysis_type, status, result_markdown, result_blocks, error_message, 
-              created_at, completed_at, s0_data, s1_data
+              created_at, updated_at, completed_at, s0_data, s1_data
        FROM analysis_results 
        WHERE user_id = $1 
        ORDER BY created_at DESC 
@@ -439,7 +440,7 @@ router.get('/user/analyses/:id', async (req, res) => {
     // CRITICAL: Verify that this analysis belongs to this user
     const result = await pool.query(
       `SELECT id, analysis_type, status, result_markdown, result_blocks, error_message,
-              created_at, completed_at, form1_data, form2_data, form3_data
+              created_at, updated_at, completed_at, form1_data, form2_data, form3_data
        FROM analysis_results 
        WHERE id = $1 AND user_id = $2`,
       [analysisId, userId]
