@@ -251,7 +251,9 @@ export class UsageTracker {
       }
 
       // Get subscription info if not provided
-      let subId = subscriptionId;
+      // Check if subscriptionId is a valid UUID, otherwise set to null
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      let subId = (subscriptionId && uuidRegex.test(subscriptionId)) ? subscriptionId : null;
       if (!subId) {
         const subResult = await pool.query(`
           SELECT id FROM user_subscriptions

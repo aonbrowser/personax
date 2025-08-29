@@ -86,7 +86,9 @@ export default function AnalysisResultScreen({ navigation, route }: AnalysisResu
               gender: form1.F1_GENDER === '0' ? 'Erkek' : 
                       form1.F1_GENDER === '1' ? 'Kadın' : 
                       form1.F1_GENDER === '2' ? 'Diğer' : 'Belirtilmemiş',
-              createdAt: analysis.created_at
+              createdAt: analysis.created_at,
+              updatedAt: analysis.updated_at,
+              displayDate: analysis.updated_at || analysis.created_at
             };
             setUserInfo(userDetails);
           }
@@ -255,9 +257,11 @@ export default function AnalysisResultScreen({ navigation, route }: AnalysisResu
                   <Text style={styles.userInfoValue}>{userInfo.gender}</Text>
                 </View>
                 <View style={styles.userInfoRow}>
-                  <Text style={styles.userInfoLabel}>Oluşturulma:</Text>
+                  <Text style={styles.userInfoLabel}>
+                    {userInfo.updatedAt ? 'Son Güncelleme:' : 'Oluşturulma:'}
+                  </Text>
                   <Text style={styles.userInfoValue}>
-                    {userInfo.createdAt ? new Date(userInfo.createdAt).toLocaleString('tr-TR') : 'Bilinmiyor'}
+                    {userInfo.displayDate ? new Date(userInfo.displayDate).toLocaleString('tr-TR') : 'Bilinmiyor'}
                   </Text>
                 </View>
               </View>

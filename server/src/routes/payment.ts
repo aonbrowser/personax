@@ -102,6 +102,63 @@ router.get('/check-limits', async (req: Request, res: Response) => {
   }
 });
 
+// Cancel subscription endpoint
+router.post('/subscriptions/:subscriptionId/cancel', async (req: Request, res: Response) => {
+  const userEmail = req.header('x-user-email');
+  const { subscriptionId } = req.params;
+  
+  if (!userEmail || !userEmail.includes('@')) {
+    return res.status(401).json({ error: 'Unauthorized - email required' });
+  }
+  
+  if (!subscriptionId) {
+    return res.status(400).json({ error: 'subscription_id is required' });
+  }
+  
+  try {
+    // Get user ID from email
+    const userResult = await pool.query(`
+      SELECT id FROM users WHERE email = $1
+    `, [userEmail]);
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const userId = userResult.rows[0].id;
+    
+    // Verify the subscription belongs to the user
+    const subResult = await pool.query(`
+      SELECT * FROM user_subscriptions 
+      WHERE id = $1 AND user_id = $2 AND status = 'active'
+    `, [subscriptionId, userId]);
+    
+    if (subResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Active subscription not found' });
+    }
+    
+    // Cancel the subscription (it will remain active until end_date)
+    await pool.query(`
+      UPDATE user_subscriptions 
+      SET status = 'cancelled',
+          cancelled_at = NOW()
+      WHERE id = $1
+    `, [subscriptionId]);
+    
+    res.json({ 
+      success: true, 
+      message: 'Subscription cancelled successfully',
+      subscription: {
+        ...subResult.rows[0],
+        status: 'cancelled'
+      }
+    });
+  } catch (error) {
+    console.error('Error cancelling subscription:', error);
+    res.status(500).json({ error: 'Failed to cancel subscription' });
+  }
+});
+
 // Get pricing options based on user's current situation
 router.get('/pricing-options', async (req: Request, res: Response) => {
   const userEmail = req.header('x-user-email');

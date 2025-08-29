@@ -147,6 +147,9 @@ export default function DraggableRanking({ values, currentRanking, onRankingChan
           targetIndex--;
         }
         
+        // Ensure target index is within valid bounds
+        targetIndex = Math.max(0, Math.min(targetIndex, currentRanking.length));
+        
         setDropIndicatorIndex(targetIndex);
         lastValidDropIndex.current = targetIndex;
       }
@@ -241,9 +244,13 @@ export default function DraggableRanking({ values, currentRanking, onRankingChan
     }
     
     // If dragging from within the ranking, adjust for the removal
+    // This adjustment should only happen if we're moving to a position after the original
     if (draggedFromIndex !== null && indicatorPos > draggedFromIndex) {
       indicatorPos--;
     }
+    
+    // Ensure indicator position is within valid bounds
+    indicatorPos = Math.max(0, Math.min(indicatorPos, currentRanking.length));
     
     setDropIndicatorIndex(indicatorPos);
   };
@@ -269,31 +276,52 @@ export default function DraggableRanking({ values, currentRanking, onRankingChan
   const performDrop = (targetIndex: number) => {
     if (!draggedItem) return;
     
+    // Create a copy of current ranking
     let newRanking = [...currentRanking];
     
-    // If dragging from unranked values
+    // If dragging from unranked values (adding new item)
     if (draggedFromIndex === null) {
-      // Insert at the target position
-      newRanking.splice(targetIndex, 0, draggedItem);
+      // We have 10 total slots, check how many are actually filled
+      // The currentRanking array only contains filled items, not empty slots
+      // So if currentRanking.length < 10, we have empty slots available
+      
+      // Simply insert the new item at the target position
+      // The target index represents where in the ranking to place it
+      const insertIndex = Math.min(targetIndex, newRanking.length);
+      
+      // Insert the new item at the target position
+      newRanking.splice(insertIndex, 0, draggedItem);
+      
+      // Only limit to 10 items maximum
+      if (newRanking.length > 10) {
+        // This should rarely happen, but just in case
+        newRanking = newRanking.slice(0, 10);
+      }
+      
+      onRankingChange(newRanking);
     } 
-    // If dragging within ranked values
+    // If dragging within ranked values (reordering existing items)
     else {
       // Remove from old position
-      newRanking = newRanking.filter((_, i) => i !== draggedFromIndex);
-      // Insert at new position
+      const [removed] = newRanking.splice(draggedFromIndex, 1);
+      
+      // Calculate correct insert index
       let insertIndex = targetIndex;
+      
+      // If we removed an item before the target, adjust the index
       if (draggedFromIndex < targetIndex) {
-        insertIndex = Math.max(0, insertIndex);
+        insertIndex = Math.max(0, insertIndex - 1);
       }
-      newRanking.splice(insertIndex, 0, draggedItem);
+      
+      // Ensure index is within bounds
+      insertIndex = Math.min(insertIndex, newRanking.length);
+      insertIndex = Math.max(0, insertIndex);
+      
+      // Insert at new position
+      newRanking.splice(insertIndex, 0, removed);
+      
+      onRankingChange(newRanking);
     }
-    
-    // Ensure max 10 items
-    if (newRanking.length > 10) {
-      newRanking = newRanking.slice(0, 10);
-    }
-    
-    onRankingChange(newRanking);
   };
   
   const handleDrop = (e?: React.DragEvent) => {

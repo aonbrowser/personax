@@ -34,6 +34,8 @@ import MyAnalysesScreen from './screens/MyAnalysesScreen';
 import AnalysisResultScreen from './screens/AnalysisResultScreen';
 import NewPersonAnalysisScreen from './screens/NewPersonAnalysisScreen';
 import AccountInfoScreen from './screens/AccountInfoScreen';
+import SubscriptionScreen from './screens/SubscriptionScreen';
+import CreditsScreen from './screens/CreditsScreen';
 
 // Services
 
@@ -332,6 +334,9 @@ export default function App() {
             },
           });
           
+          console.log('API Response status:', response.status);
+          console.log('API Response ok:', response.ok);
+          
           if (response.ok) {
             const data = await response.json();
             console.log('=== ANALYSES DATA FROM SERVER ===');
@@ -364,6 +369,12 @@ export default function App() {
           }
         } catch (error) {
           console.error('Error checking analyses:', error);
+          console.error('Error details:', {
+            message: error.message,
+            stack: error.stack,
+            apiUrl: `${API_URL}/v1/user/analyses`,
+            email: userEmail
+          });
         }
         
         // Load drafts
@@ -1129,6 +1140,8 @@ export default function App() {
         console.log('paymentParams.form1Data exists:', !!paymentParams.form1Data);
         console.log('paymentParams.form2Data exists:', !!paymentParams.form2Data);
         console.log('paymentParams.form3Data exists:', !!paymentParams.form3Data);
+        console.log('paymentParams.editMode:', paymentParams.editMode);
+        console.log('paymentParams.analysisId:', paymentParams.analysisId);
       } else {
         console.log('paymentParams is null/undefined/false:', paymentParams);
       }
@@ -1151,6 +1164,8 @@ export default function App() {
             form2Data: paymentParams?.form2Data,
             form3Data: paymentParams?.form3Data,
             formData: paymentParams?.formData || {},
+            editMode: paymentParams?.editMode || false,
+            analysisId: paymentParams?.analysisId,
             onComplete: (result: any) => {
               console.log('Analysis complete:', result);
               // Navigate to result screen or show result
@@ -1163,9 +1178,53 @@ export default function App() {
     if (currentScreen === 'AccountInfo') {
       return <AccountInfoScreen 
         navigation={{ 
-          goBack: () => setCurrentScreen('home')
+          goBack: () => setCurrentScreen('home'),
+          navigate: (screen: string, params?: any) => {
+            if (screen === 'Subscription') {
+              setCurrentScreen('Subscription');
+            } else if (screen === 'Credits') {
+              setCurrentScreen('Credits');
+            }
+          }
         }}
         userEmail={email}
+      />;
+    }
+    
+    if (currentScreen === 'Subscription') {
+      return <SubscriptionScreen 
+        navigation={{ 
+          goBack: () => setCurrentScreen('AccountInfo'),
+          navigate: (screen: string, params?: any) => {
+            if (screen === 'PaymentCheck') {
+              setPaymentParams(params);
+              setCurrentScreen('PaymentCheck');
+            }
+          }
+        }}
+        route={{
+          params: {
+            userEmail: email
+          }
+        }}
+      />;
+    }
+    
+    if (currentScreen === 'Credits') {
+      return <CreditsScreen 
+        navigation={{ 
+          goBack: () => setCurrentScreen('AccountInfo'),
+          navigate: (screen: string, params?: any) => {
+            if (screen === 'Subscription') {
+              setCurrentScreen('Subscription');
+            }
+          }
+        }}
+        route={{
+          params: {
+            userEmail: email
+          }
+        }}
       />;
     }
     
@@ -1190,6 +1249,27 @@ export default function App() {
               setCurrentScreen(screen);
             }
           },
+          push: (screen: string, params?: any) => {
+            // push is like navigate but forces a new instance
+            if (screen === 'NewForms' && params?.editMode) {
+              // Set edit mode parameters
+              setEditMode(params.editMode);
+              setEditAnalysisId(params.analysisId);
+              // Store userEmail for NewForms screen
+              if (params.userEmail) {
+                // NewForms will use this email
+              }
+              setCurrentScreen('NewForms');
+            } else {
+              // For other screens, act like navigate
+              if (screen === 'AnalysisResult') {
+                setAnalysisResultParams(params);
+                setCurrentScreen(screen);
+              } else {
+                setCurrentScreen(screen);
+              }
+            }
+          },
           goBack: () => setCurrentScreen('home')
         }}
         userEmail={email}
@@ -1210,6 +1290,8 @@ export default function App() {
     
     if (currentScreen === 'NewForms') {
       return <NewFormsScreen 
+        editMode={editMode}
+        analysisId={editAnalysisId}
         navigation={{ 
           navigate: (screen: string, params?: any) => {
             console.log(`=== NEWFORMS NAVIGATION CALLED: screen="${screen}" ===`);
@@ -1433,11 +1515,16 @@ export default function App() {
                   
                   // Double-check by making a fresh API call
                   try {
+                    console.log('Making API call to:', `${API_URL}/v1/user/analyses`);
+                    console.log('With email:', email);
+                    
                     const response = await fetch(`${API_URL}/v1/user/analyses`, {
                       headers: {
                         'x-user-email': email,
                       },
                     });
+                    
+                    console.log('API Response received:', response.status);
                     
                     if (response.ok) {
                       const data = await response.json();
@@ -1465,7 +1552,12 @@ export default function App() {
                       }
                     }
                   } catch (error) {
-                    console.error('Error checking analyses:', error);
+                    console.error('Error in Kendi Analizim button:', error);
+                    console.error('Error details:', {
+                      message: error.message,
+                      apiUrl: `${API_URL}/v1/user/analyses`,
+                      email: email
+                    });
                     // Fallback to state if API fails
                     if (hasSelfAnalysis) {
                       setCurrentScreen('MyAnalyses');

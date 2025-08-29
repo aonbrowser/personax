@@ -32,6 +32,13 @@ interface PaymentCheckScreenProps {
 
 export default function PaymentCheckScreen({ navigation, route }: PaymentCheckScreenProps) {
   const { serviceType, formData, form1Data, form2Data, form3Data, onComplete, userEmail: routeEmail, editMode, analysisId } = route.params;
+  
+  // DEBUG: Log edit mode parameters
+  console.log('=== PAYMENTCHECK SCREEN INIT ===');
+  console.log('EditMode received:', editMode);
+  console.log('AnalysisId received:', analysisId);
+  console.log('All route params:', route.params);
+  
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasCredit, setHasCredit] = useState(false);
@@ -321,6 +328,16 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
       ...(editMode && analysisId ? { analysisId, updateExisting: true } : {})
     };
     
+    // DEBUG: Log what we're sending
+    console.log('=== REQUEST DATA PREPARED ===');
+    console.log('EditMode in continueWithAnalysis:', editMode);
+    console.log('AnalysisId in continueWithAnalysis:', analysisId);
+    console.log('RequestData has analysisId?:', 'analysisId' in requestData);
+    console.log('RequestData has updateExisting?:', 'updateExisting' in requestData);
+    if (requestData.analysisId) {
+      console.log('RequestData.analysisId:', requestData.analysisId);
+    }
+    
     // Navigate IMMEDIATELY
     console.log('NAVIGATING TO MyAnalyses NOW!');
     console.log('Edit mode:', editMode, 'Analysis ID:', analysisId);
@@ -409,6 +426,12 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
       setIsProcessing(true);
       setLoading(true);
       
+      const requestBody = JSON.stringify(requestData);
+      console.log('=== API REQUEST BODY ===');
+      console.log('Body being sent:', requestBody);
+      console.log('Body includes analysisId?:', requestBody.includes('analysisId'));
+      console.log('Body includes updateExisting?:', requestBody.includes('updateExisting'));
+      
       fetch(`${API_URL}/v1${analysisEndpoint}`, {
         method: 'POST',
         headers: {
@@ -417,7 +440,7 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
           'x-user-lang': 'tr',
           'x-user-id': userEmail,
         },
-        body: JSON.stringify(requestData),
+        body: requestBody,
       }).then(response => {
         if (response.ok && onComplete) {
           response.json().then(result => {

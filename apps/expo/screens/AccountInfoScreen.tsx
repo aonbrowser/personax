@@ -156,6 +156,27 @@ export default function AccountInfoScreen({ navigation, userEmail }: AccountInfo
             </View>
           </View>
 
+          {/* Quick Actions */}
+          <View style={styles.section}>
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('Subscription', { userEmail })}
+            >
+              <Text style={styles.menuItemIcon}>💎</Text>
+              <Text style={styles.menuItemText}>Aboneliğim</Text>
+              <Text style={styles.menuItemArrow}>›</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('Credits', { userEmail })}
+            >
+              <Text style={styles.menuItemIcon}>🎯</Text>
+              <Text style={styles.menuItemText}>Kredilerim</Text>
+              <Text style={styles.menuItemArrow}>›</Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Subscriptions Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Aboneliklerim</Text>
@@ -389,6 +410,30 @@ const styles = StyleSheet.create({
   primaryBadge: {
     fontSize: 12,
     color: 'rgb(66, 153, 225)',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    marginBottom: 12,
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  menuItemIcon: {
+    fontSize: 20,
+    marginRight: 12,
+  },
+  menuItemText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#000',
+  },
+  menuItemArrow: {
+    fontSize: 20,
+    color: '#9CA3AF',
   },
   statusBadge: {
     paddingHorizontal: 8,

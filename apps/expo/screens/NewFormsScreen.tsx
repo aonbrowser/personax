@@ -34,20 +34,22 @@ interface FormAnswers {
 }
 
 // Cache buster: Updated at 2024-01-20 15:45
-export default function NewFormsScreen({ navigation, route, activeRecordingType, setActiveRecordingType, stopAnyActiveRecording }: any) {
-  // Debug route params
+export default function NewFormsScreen({ navigation, route, activeRecordingType, setActiveRecordingType, stopAnyActiveRecording, editMode: propsEditMode, analysisId: propsAnalysisId }: any) {
+  // Debug route params and props
   console.log('=== NewFormsScreen Route Params ===');
   console.log('All route params:', route?.params);
   console.log('editMode from params:', route?.params?.editMode);
   console.log('analysisId from params:', route?.params?.analysisId);
   console.log('userEmail from params:', route?.params?.userEmail);
+  console.log('editMode from props:', propsEditMode);
+  console.log('analysisId from props:', propsAnalysisId);
   
-  // Check for edit mode params
-  const editMode = route?.params?.editMode || false;
+  // Check for edit mode params - prefer props over route params
+  const editMode = propsEditMode || route?.params?.editMode || false;
   const existingForm1Data = route?.params?.existingForm1Data || {};
   const existingForm2Data = route?.params?.existingForm2Data || {};
   const existingForm3Data = route?.params?.existingForm3Data || {};
-  const analysisId = route?.params?.analysisId;
+  const analysisId = propsAnalysisId || route?.params?.analysisId;
   const userEmail = route?.params?.userEmail;
   const [isLoadingResponses, setIsLoadingResponses] = useState(false);
 
@@ -1852,7 +1854,8 @@ const styles = StyleSheet.create({
   choiceContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    marginHorizontal: -4,
+    marginBottom: -8,
   },
   choiceButton: {
     paddingHorizontal: 16,
@@ -1863,6 +1866,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     flexShrink: 1,
     minWidth: 0,
+    marginHorizontal: 4,
+    marginBottom: 8,
   },
   choiceButtonSelected: {
     backgroundColor: 'rgb(96, 187, 202)',
