@@ -204,6 +204,9 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
         // Always set the pricing options
         setPricingOptions(optionsData);
         console.log('Pricing options state set to:', optionsData);
+        
+        // CRITICAL: Set loading to false so UI shows pricing options
+        setLoading(false);
       } else {
         // Has credit, proceed with analysis
         console.log('✅ USER HAS CREDIT!');
@@ -216,6 +219,9 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
       console.error('Error checking limits:', error);
       Alert.alert('Hata', 'Limit kontrolü sırasında hata oluştu');
       setLoading(false); // Make sure loading is set to false even on error
+    } finally {
+      // Ensure loading is always set to false
+      setLoading(false);
     }
   };
 
@@ -730,46 +736,79 @@ export default function PaymentCheckScreen({ navigation, route }: PaymentCheckSc
           </Text>
 
           {pricingOptions && pricingOptions.availablePlans && pricingOptions.availablePlans.length > 0 ? (
-            pricingOptions.availablePlans.map((plan: any) => (
-            <TouchableOpacity
-              key={plan.id}
-              style={[
-                styles.optionCard,
-                selectedOption === plan.id && styles.optionCardSelected,
-              ]}
-              onPress={() => setSelectedOption(plan.id)}
-            >
-              <View style={styles.optionHeader}>
-                <Text style={styles.optionTitle}>{plan.name}</Text>
-                <Text style={styles.optionPrice}>${plan.price_usd}/ay</Text>
-              </View>
-              <View style={styles.optionFeatures}>
-                <Text style={styles.featureItem}>
-                  ✓ Kendi Analizim (Dahil)
-                </Text>
-                <Text style={styles.featureItem}>
-                  ✓ {plan.self_reanalysis_limit} Tekrar Analiz
-                </Text>
-                <Text style={styles.featureItem}>
-                  ✓ {plan.other_analysis_limit} Başka Kişi Analizi
-                </Text>
-                <Text style={styles.featureItem}>
-                  ✓ {plan.relationship_analysis_limit} İlişki Analizi
-                </Text>
-                <Text style={styles.featureItem}>
-                  ✓ {plan.coaching_tokens_limit / 1000}K Coaching Token
-                </Text>
-              </View>
-              {selectedOption === plan.id && (
+            pricingOptions.availablePlans.map((plan: any) => {
+              // Check if this is the free plan and user has already used it
+              const isFreePlan = plan.id === 'free';
+              // If user has free plan subscriptions but hasCredit is false, then free plan is blocked
+              const hasFreePlanSubscription = pricingOptions?.subscriptions?.some((sub: any) => 
+                sub.plan_id === 'free'
+              );
+              const isFreePlanDisabled = isFreePlan && hasFreePlanSubscription && !hasCredit;
+              
+              return (
                 <TouchableOpacity
-                  style={styles.selectButton}
-                  onPress={() => handlePurchaseSubscription(plan.id)}
+                  key={plan.id}
+                  style={[
+                    styles.optionCard,
+                    selectedOption === plan.id && styles.optionCardSelected,
+                    isFreePlanDisabled && styles.optionCardDisabled,
+                  ]}
+                  onPress={() => {
+                    if (!isFreePlanDisabled) {
+                      setSelectedOption(plan.id);
+                    }
+                  }}
+                  disabled={isFreePlanDisabled}
                 >
-                  <Text style={styles.selectButtonText}>Bu Paketi Seç</Text>
+                  <View style={styles.optionHeader}>
+                    <Text style={[
+                      styles.optionTitle,
+                      isFreePlanDisabled && styles.disabledText
+                    ]}>
+                      {plan.name}
+                    </Text>
+                    <Text style={[
+                      styles.optionPrice,
+                      isFreePlanDisabled && styles.disabledText
+                    ]}>
+                      ${plan.price_usd}/ay
+                    </Text>
+                  </View>
+                  <View style={styles.optionFeatures}>
+                    <Text style={[styles.featureItem, isFreePlanDisabled && styles.disabledText]}>
+                      ✓ Kendi Analizim (Dahil)
+                    </Text>
+                    <Text style={[styles.featureItem, isFreePlanDisabled && styles.disabledText]}>
+                      ✓ {plan.self_reanalysis_limit} Tekrar Analiz
+                    </Text>
+                    <Text style={[styles.featureItem, isFreePlanDisabled && styles.disabledText]}>
+                      ✓ {plan.other_analysis_limit} Başka Kişi Analizi
+                    </Text>
+                    <Text style={[styles.featureItem, isFreePlanDisabled && styles.disabledText]}>
+                      ✓ {plan.relationship_analysis_limit} İlişki Analizi
+                    </Text>
+                    <Text style={[styles.featureItem, isFreePlanDisabled && styles.disabledText]}>
+                      ✓ {plan.coaching_tokens_limit / 1000}K Coaching Token
+                    </Text>
+                  </View>
+                  {isFreePlanDisabled && (
+                    <View style={styles.disabledOverlay}>
+                      <Text style={styles.disabledOverlayText}>
+                        Ücretsiz paket daha önce kullanıldı
+                      </Text>
+                    </View>
+                  )}
+                  {selectedOption === plan.id && !isFreePlanDisabled && (
+                    <TouchableOpacity
+                      style={styles.selectButton}
+                      onPress={() => handlePurchaseSubscription(plan.id)}
+                    >
+                      <Text style={styles.selectButtonText}>Bu Paketi Seç</Text>
+                    </TouchableOpacity>
+                  )}
                 </TouchableOpacity>
-              )}
-            </TouchableOpacity>
-          ))
+              );
+            })
           ) : pricingOptions ? (
             <Text style={styles.noPlansText}>Uygun paket bulunamadı</Text>
           ) : (
@@ -1034,5 +1073,29 @@ const styles = StyleSheet.create({
     color: '#047857',
     fontSize: 14,
     fontWeight: '500',
+  },
+  optionCardDisabled: {
+    opacity: 0.5,
+    backgroundColor: '#F1F5F9',
+  },
+  disabledText: {
+    color: '#94A3B8',
+  },
+  disabledOverlay: {
+    backgroundColor: 'rgba(248, 250, 252, 0.9)',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 3,
+  },
+  disabledOverlayText: {
+    color: '#64748B',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

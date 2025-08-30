@@ -27,27 +27,18 @@ interface Subscription {
   start_date: string;
   end_date: string;
   is_primary: boolean;
-  credits_remaining: {
-    self_analysis?: number;
-    self_reanalysis?: number;
-    other_analysis?: number;
-    relationship_analysis?: number;
-    coaching_tokens?: number;
-  };
-  // Initial limits from plan
-  self_analysis_limit?: number;
-  self_reanalysis_limit?: number;
-  other_analysis_limit?: number;
-  relationship_analysis_limit?: number;
-  coaching_tokens_limit?: number;
+  total_analysis_credits: number;
+  credits_used: number;
+  coaching_tokens_limit: number;
+  coaching_tokens_used?: number;
 }
 
 interface MonthlyUsage {
-  self_analysis_count: number;
-  self_reanalysis_count: number;
-  other_analysis_count: number;
-  relationship_analysis_count: number;
-  coaching_tokens_used: number;
+  self_analysis_count?: number;
+  self_reanalysis_count?: number;
+  other_analysis_count?: number;
+  relationship_analysis_count?: number;
+  coaching_tokens_used?: number;
 }
 
 export default function CreditsScreen({ navigation, route }: CreditsScreenProps) {
@@ -101,10 +92,12 @@ export default function CreditsScreen({ navigation, route }: CreditsScreenProps)
 
   const getPlanName = (planId: string) => {
     switch (planId) {
+      case 'free':
+        return 'Ücretsiz Paket';
       case 'standard':
         return 'Standart Paket';
       case 'extra':
-        return 'Ekstra Paket';
+        return 'Extra Paket';
       default:
         return planId;
     }
@@ -112,39 +105,50 @@ export default function CreditsScreen({ navigation, route }: CreditsScreenProps)
 
   const getTotalCredits = () => {
     const totals = {
-      self_analysis: { remaining: 0, total: 0, used: 0 },
-      self_reanalysis: { remaining: 0, total: 0, used: 0 },
-      other_analysis: { remaining: 0, total: 0, used: 0 },
-      relationship_analysis: { remaining: 0, total: 0, used: 0 },
+      analysis: { remaining: 0, total: 0, used: 0 },
       coaching_tokens: { remaining: 0, total: 0, used: 0 },
     };
 
+    // Calculate totals from all non-expired subscriptions (active + cancelled)
     subscriptions
-      .filter(sub => sub.status === 'active')
+      .filter(sub => {
+        // Include active and cancelled subscriptions that haven't expired yet
+        const endDate = new Date(sub.end_date);
+        const now = new Date();
+        return (sub.status === 'active' || sub.status === 'cancelled') && endDate > now;
+      })
       .forEach(sub => {
-        // Add remaining credits
-        if (sub.credits_remaining) {
-          totals.self_analysis.remaining += sub.credits_remaining.self_analysis || 0;
-          totals.self_reanalysis.remaining += sub.credits_remaining.self_reanalysis || 0;
-          totals.other_analysis.remaining += sub.credits_remaining.other_analysis || 0;
-          totals.relationship_analysis.remaining += sub.credits_remaining.relationship_analysis || 0;
-          totals.coaching_tokens.remaining += sub.credits_remaining.coaching_tokens || 0;
-        }
+        // Calculate remaining analysis credits from credits_remaining
+        const creditsRemaining = sub.credits_remaining || {};
+        const analysisRemaining = (creditsRemaining.self_analysis || 0) + 
+          (creditsRemaining.self_reanalysis || 0) + 
+          (creditsRemaining.other_analysis || 0) + 
+          (creditsRemaining.relationship_analysis || 0);
         
-        // Add total limits
-        totals.self_analysis.total += sub.self_analysis_limit || 0;
-        totals.self_reanalysis.total += sub.self_reanalysis_limit || 0;
-        totals.other_analysis.total += sub.other_analysis_limit || 0;
-        totals.relationship_analysis.total += sub.relationship_analysis_limit || 0;
+        // Only collect totals from subscription plans (ignore corrupt remaining data)
+        totals.analysis.total += sub.total_analysis_credits || 0;
         totals.coaching_tokens.total += sub.coaching_tokens_limit || 0;
       });
 
-    // Calculate used credits
-    totals.self_analysis.used = totals.self_analysis.total - totals.self_analysis.remaining;
-    totals.self_reanalysis.used = totals.self_reanalysis.total - totals.self_reanalysis.remaining;
-    totals.other_analysis.used = totals.other_analysis.total - totals.other_analysis.remaining;
-    totals.relationship_analysis.used = totals.relationship_analysis.total - totals.relationship_analysis.remaining;
-    totals.coaching_tokens.used = totals.coaching_tokens.total - totals.coaching_tokens.remaining;
+    // Calculate used from monthly usage (real usage data)
+    if (monthlyUsage) {
+      totals.analysis.used = (monthlyUsage.self_analysis_count || 0) + 
+        (monthlyUsage.self_reanalysis_count || 0) + 
+        (monthlyUsage.other_analysis_count || 0) + 
+        (monthlyUsage.relationship_analysis_count || 0);
+      
+      totals.coaching_tokens.used = monthlyUsage.coaching_tokens_used || 0;
+    }
+
+    // Calculate remaining = total - used (mathematically correct)
+    totals.analysis.remaining = Math.max(0, totals.analysis.total - totals.analysis.used);
+    totals.coaching_tokens.remaining = Math.max(0, totals.coaching_tokens.total - totals.coaching_tokens.used);
+
+    console.log('DEBUG - Credit totals:', {
+      analysis: totals.analysis,
+      coaching_tokens: totals.coaching_tokens,
+      monthlyUsage: monthlyUsage
+    });
 
     return totals;
   };
@@ -167,7 +171,11 @@ export default function CreditsScreen({ navigation, route }: CreditsScreenProps)
   }
 
   const totalCredits = getTotalCredits();
-  const hasActiveSubscription = subscriptions.some(sub => sub.status === 'active');
+  const hasActiveSubscription = subscriptions.some(sub => {
+    const endDate = new Date(sub.end_date);
+    const now = new Date();
+    return (sub.status === 'active' || sub.status === 'cancelled') && endDate > now;
+  });
 
   return (
     <SafeAreaView style={styles.container}>
@@ -188,136 +196,51 @@ export default function CreditsScreen({ navigation, route }: CreditsScreenProps)
       >
         {/* Total Credits Summary */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Toplam Kredilerim</Text>
-          <View style={styles.totalCreditsCard}>
-            {hasActiveSubscription ? (
-              <>
-                <View style={styles.creditItem}>
-                  <View style={styles.creditIconContainer}>
-                    <Text style={styles.creditIcon}>👤</Text>
-                  </View>
-                  <View style={styles.creditInfo}>
-                    <Text style={styles.creditLabel}>Kendi Analizi</Text>
-                    <View style={styles.creditValueContainer}>
-                      <Text style={styles.creditValue}>{totalCredits.self_analysis.remaining}</Text>
-                      <Text style={styles.creditDivider}>/</Text>
-                      <Text style={styles.creditTotal}>{totalCredits.self_analysis.total}</Text>
-                    </View>
-                    <View style={styles.progressBar}>
-                      <View 
-                        style={[
-                          styles.progressFill, 
-                          { width: `${(totalCredits.self_analysis.remaining / totalCredits.self_analysis.total) * 100}%` }
-                        ]} 
-                      />
-                    </View>
-                  </View>
+          <Text style={styles.sectionTitle}>Kredi Durumu</Text>
+          
+          {hasActiveSubscription ? (
+            <>
+              {/* Analysis Credits Table */}
+              <View style={styles.creditTable}>
+                <Text style={styles.creditTableTitle}>📊 Analiz Kredisi</Text>
+                <View style={styles.creditTableHeader}>
+                  <Text style={styles.creditTableHeaderCell}>Toplam</Text>
+                  <Text style={styles.creditTableHeaderCell}>Harcanan</Text>
+                  <Text style={styles.creditTableHeaderCell}>Kalan</Text>
                 </View>
-
-                <View style={styles.creditItem}>
-                  <View style={styles.creditIconContainer}>
-                    <Text style={styles.creditIcon}>🔄</Text>
-                  </View>
-                  <View style={styles.creditInfo}>
-                    <Text style={styles.creditLabel}>Analiz Güncelleme</Text>
-                    <View style={styles.creditValueContainer}>
-                      <Text style={styles.creditValue}>{totalCredits.self_reanalysis.remaining}</Text>
-                      <Text style={styles.creditDivider}>/</Text>
-                      <Text style={styles.creditTotal}>{totalCredits.self_reanalysis.total}</Text>
-                    </View>
-                    <View style={styles.progressBar}>
-                      <View 
-                        style={[
-                          styles.progressFill, 
-                          { width: `${(totalCredits.self_reanalysis.remaining / totalCredits.self_reanalysis.total) * 100}%` }
-                        ]} 
-                      />
-                    </View>
-                  </View>
+                <View style={styles.creditTableRow}>
+                  <Text style={styles.creditTableCell}>{totalCredits.analysis.total}</Text>
+                  <Text style={styles.creditTableCell}>{totalCredits.analysis.used}</Text>
+                  <Text style={[styles.creditTableCell, styles.creditTableCellRemaining]}>{totalCredits.analysis.remaining}</Text>
                 </View>
-
-                <View style={styles.creditItem}>
-                  <View style={styles.creditIconContainer}>
-                    <Text style={styles.creditIcon}>👥</Text>
-                  </View>
-                  <View style={styles.creditInfo}>
-                    <Text style={styles.creditLabel}>Kişi Analizi</Text>
-                    <View style={styles.creditValueContainer}>
-                      <Text style={styles.creditValue}>{totalCredits.other_analysis.remaining}</Text>
-                      <Text style={styles.creditDivider}>/</Text>
-                      <Text style={styles.creditTotal}>{totalCredits.other_analysis.total}</Text>
-                    </View>
-                    <View style={styles.progressBar}>
-                      <View 
-                        style={[
-                          styles.progressFill, 
-                          { width: `${(totalCredits.other_analysis.remaining / totalCredits.other_analysis.total) * 100}%` }
-                        ]} 
-                      />
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.creditItem}>
-                  <View style={styles.creditIconContainer}>
-                    <Text style={styles.creditIcon}>💑</Text>
-                  </View>
-                  <View style={styles.creditInfo}>
-                    <Text style={styles.creditLabel}>İlişki Analizi</Text>
-                    <View style={styles.creditValueContainer}>
-                      <Text style={styles.creditValue}>{totalCredits.relationship_analysis.remaining}</Text>
-                      <Text style={styles.creditDivider}>/</Text>
-                      <Text style={styles.creditTotal}>{totalCredits.relationship_analysis.total}</Text>
-                    </View>
-                    <View style={styles.progressBar}>
-                      <View 
-                        style={[
-                          styles.progressFill, 
-                          { width: `${(totalCredits.relationship_analysis.remaining / totalCredits.relationship_analysis.total) * 100}%` }
-                        ]} 
-                      />
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.creditItem}>
-                  <View style={styles.creditIconContainer}>
-                    <Text style={styles.creditIcon}>🎯</Text>
-                  </View>
-                  <View style={styles.creditInfo}>
-                    <Text style={styles.creditLabel}>Koçluk Token</Text>
-                    <View style={styles.creditValueContainer}>
-                      <Text style={styles.creditValue}>
-                        {(totalCredits.coaching_tokens.remaining / 1000000).toFixed(1)}M
-                      </Text>
-                      <Text style={styles.creditDivider}>/</Text>
-                      <Text style={styles.creditTotal}>
-                        {(totalCredits.coaching_tokens.total / 1000000).toFixed(1)}M
-                      </Text>
-                    </View>
-                    <View style={styles.progressBar}>
-                      <View 
-                        style={[
-                          styles.progressFill, 
-                          { width: `${(totalCredits.coaching_tokens.remaining / totalCredits.coaching_tokens.total) * 100}%` }
-                        ]} 
-                      />
-                    </View>
-                  </View>
-                </View>
-              </>
-            ) : (
-              <View style={styles.noCreditsBox}>
-                <Text style={styles.noCreditsText}>Aktif aboneliğiniz bulunmamaktadır</Text>
-                <TouchableOpacity
-                  style={styles.subscribeButton}
-                  onPress={() => navigation.navigate('Subscription', { userEmail })}
-                >
-                  <Text style={styles.subscribeButtonText}>Paketleri Görüntüle</Text>
-                </TouchableOpacity>
               </View>
-            )}
-          </View>
+
+              {/* Coaching Tokens Table */}
+              <View style={styles.creditTable}>
+                <Text style={styles.creditTableTitle}>🎯 Koçluk Token</Text>
+                <View style={styles.creditTableHeader}>
+                  <Text style={styles.creditTableHeaderCell}>Toplam</Text>
+                  <Text style={styles.creditTableHeaderCell}>Harcanan</Text>
+                  <Text style={styles.creditTableHeaderCell}>Kalan</Text>
+                </View>
+                <View style={styles.creditTableRow}>
+                  <Text style={styles.creditTableCell}>{totalCredits.coaching_tokens.total.toLocaleString()}</Text>
+                  <Text style={styles.creditTableCell}>{totalCredits.coaching_tokens.used.toLocaleString()}</Text>
+                  <Text style={[styles.creditTableCell, styles.creditTableCellRemaining]}>{totalCredits.coaching_tokens.remaining.toLocaleString()}</Text>
+                </View>
+              </View>
+            </>
+          ) : (
+            <View style={styles.noCreditsBox}>
+              <Text style={styles.noCreditsText}>Aktif aboneliğiniz bulunmamaktadır</Text>
+              <TouchableOpacity
+                style={styles.subscribeButton}
+                onPress={() => navigation.navigate('Subscription', { userEmail })}
+              >
+                <Text style={styles.subscribeButtonText}>Paketleri Görüntüle</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Monthly Usage */}
@@ -326,42 +249,42 @@ export default function CreditsScreen({ navigation, route }: CreditsScreenProps)
             <Text style={styles.sectionTitle}>Bu Ay Kullanım</Text>
             <View style={styles.usageCard}>
               <View style={styles.usageGrid}>
-                {monthlyUsage.self_analysis_count > 0 && (
-                  <View style={styles.usageItem}>
-                    <Text style={styles.usageCount}>{monthlyUsage.self_analysis_count}</Text>
-                    <Text style={styles.usageLabel}>Kendi Analizi</Text>
-                  </View>
-                )}
-                {monthlyUsage.self_reanalysis_count > 0 && (
-                  <View style={styles.usageItem}>
-                    <Text style={styles.usageCount}>{monthlyUsage.self_reanalysis_count}</Text>
-                    <Text style={styles.usageLabel}>Güncelleme</Text>
-                  </View>
-                )}
-                {monthlyUsage.other_analysis_count > 0 && (
-                  <View style={styles.usageItem}>
-                    <Text style={styles.usageCount}>{monthlyUsage.other_analysis_count}</Text>
-                    <Text style={styles.usageLabel}>Kişi Analizi</Text>
-                  </View>
-                )}
-                {monthlyUsage.relationship_analysis_count > 0 && (
-                  <View style={styles.usageItem}>
-                    <Text style={styles.usageCount}>{monthlyUsage.relationship_analysis_count}</Text>
-                    <Text style={styles.usageLabel}>İlişki Analizi</Text>
-                  </View>
-                )}
-                {monthlyUsage.coaching_tokens_used > 0 && (
-                  <View style={styles.usageItem}>
-                    <Text style={styles.usageCount}>
-                      {(monthlyUsage.coaching_tokens_used / 1000000).toFixed(1)}M
-                    </Text>
-                    <Text style={styles.usageLabel}>Koçluk Token</Text>
-                  </View>
-                )}
+                {(() => {
+                  const totalAnalysisUsage = (monthlyUsage.self_analysis_count || 0) + 
+                    (monthlyUsage.self_reanalysis_count || 0) + 
+                    (monthlyUsage.other_analysis_count || 0) + 
+                    (monthlyUsage.relationship_analysis_count || 0);
+                  
+                  return (
+                    <>
+                      {totalAnalysisUsage > 0 && (
+                        <View style={styles.usageItem}>
+                          <Text style={styles.usageCount}>{totalAnalysisUsage}</Text>
+                          <Text style={styles.usageLabel}>Analiz Kredisi</Text>
+                        </View>
+                      )}
+                      {(monthlyUsage.coaching_tokens_used || 0) > 0 && (
+                        <View style={styles.usageItem}>
+                          <Text style={styles.usageCount}>
+                            {monthlyUsage.coaching_tokens_used}
+                          </Text>
+                          <Text style={styles.usageLabel}>Koçluk Token</Text>
+                        </View>
+                      )}
+                    </>
+                  );
+                })()}
               </View>
-              {Object.values(monthlyUsage).every(v => v === 0) && (
-                <Text style={styles.noUsageText}>Bu ay henüz kullanım yapmadınız</Text>
-              )}
+              {(() => {
+                const totalAnalysisUsage = (monthlyUsage.self_analysis_count || 0) + 
+                  (monthlyUsage.self_reanalysis_count || 0) + 
+                  (monthlyUsage.other_analysis_count || 0) + 
+                  (monthlyUsage.relationship_analysis_count || 0);
+                
+                return (totalAnalysisUsage === 0 && (monthlyUsage.coaching_tokens_used || 0) === 0) && (
+                  <Text style={styles.noUsageText}>Bu ay henüz kullanım yapmadınız</Text>
+                );
+              })()}
             </View>
           </View>
         )}
@@ -386,35 +309,11 @@ export default function CreditsScreen({ navigation, route }: CreditsScreenProps)
                   <Text style={styles.expiryDate}>Bitiş: {formatDate(sub.end_date)}</Text>
                   
                   <View style={styles.creditsList}>
-                    {sub.self_analysis_limit !== undefined && sub.self_analysis_limit > 0 && (
+                    {sub.total_analysis_credits !== undefined && sub.total_analysis_credits > 0 && (
                       <View style={styles.creditsRow}>
-                        <Text style={styles.creditsLabel}>Kendi Analizi:</Text>
+                        <Text style={styles.creditsLabel}>Analiz Kredisi:</Text>
                         <Text style={styles.creditsDetailValue}>
-                          {sub.credits_remaining.self_analysis || 0}/{sub.self_analysis_limit}
-                        </Text>
-                      </View>
-                    )}
-                    {sub.self_reanalysis_limit !== undefined && sub.self_reanalysis_limit > 0 && (
-                      <View style={styles.creditsRow}>
-                        <Text style={styles.creditsLabel}>Analiz Güncelleme:</Text>
-                        <Text style={styles.creditsDetailValue}>
-                          {sub.credits_remaining.self_reanalysis || 0}/{sub.self_reanalysis_limit}
-                        </Text>
-                      </View>
-                    )}
-                    {sub.other_analysis_limit !== undefined && sub.other_analysis_limit > 0 && (
-                      <View style={styles.creditsRow}>
-                        <Text style={styles.creditsLabel}>Kişi Analizi:</Text>
-                        <Text style={styles.creditsDetailValue}>
-                          {sub.credits_remaining.other_analysis || 0}/{sub.other_analysis_limit}
-                        </Text>
-                      </View>
-                    )}
-                    {sub.relationship_analysis_limit !== undefined && sub.relationship_analysis_limit > 0 && (
-                      <View style={styles.creditsRow}>
-                        <Text style={styles.creditsLabel}>İlişki Analizi:</Text>
-                        <Text style={styles.creditsDetailValue}>
-                          {sub.credits_remaining.relationship_analysis || 0}/{sub.relationship_analysis_limit}
+                          {(sub.total_analysis_credits || 0) - (sub.credits_used || 0)}/{sub.total_analysis_credits}
                         </Text>
                       </View>
                     )}
@@ -422,7 +321,7 @@ export default function CreditsScreen({ navigation, route }: CreditsScreenProps)
                       <View style={styles.creditsRow}>
                         <Text style={styles.creditsLabel}>Koçluk Token:</Text>
                         <Text style={styles.creditsDetailValue}>
-                          {((sub.credits_remaining.coaching_tokens || 0) / 1000000).toFixed(1)}M/{(sub.coaching_tokens_limit / 1000000).toFixed(1)}M
+                          {(sub.coaching_tokens_limit || 0) - (sub.coaching_tokens_used || 0)}/{sub.coaching_tokens_limit}
                         </Text>
                       </View>
                     )}
@@ -687,5 +586,52 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1E40AF',
     lineHeight: 20,
+  },
+  creditTable: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 3,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
+  },
+  creditTableTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+    padding: 12,
+    backgroundColor: 'rgb(45, 55, 72)',
+    color: '#FFFFFF',
+  },
+  creditTableHeader: {
+    flexDirection: 'row',
+    backgroundColor: 'rgb(244, 244, 244)',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  creditTableHeaderCell: {
+    flex: 1,
+    padding: 12,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    textAlign: 'center',
+    textTransform: 'uppercase',
+  },
+  creditTableRow: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+  },
+  creditTableCell: {
+    flex: 1,
+    padding: 12,
+    fontSize: 14,
+    color: '#000',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  creditTableCellRemaining: {
+    color: 'rgb(66, 153, 225)',
+    fontWeight: '700',
   },
 });

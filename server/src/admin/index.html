@@ -61,38 +61,27 @@
                         <thead>
                             <tr>
                                 <th>Özellik</th>
+                                <th>Ücretsiz</th>
                                 <th>Standart</th>
                                 <th>Extra</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td>Kendi Analizim</td>
-                                <td class="included">✓ Dahil</td>
-                                <td class="included">✓ Dahil</td>
-                            </tr>
-                            <tr>
-                                <td>Kendi Tekrar Analizim</td>
-                                <td><input type="number" id="standard_self_reanalysis" class="input-number"></td>
-                                <td><input type="number" id="extra_self_reanalysis" class="input-number"></td>
-                            </tr>
-                            <tr>
-                                <td>Başka Kişi Analizi</td>
-                                <td><input type="number" id="standard_other_analysis" class="input-number"></td>
-                                <td><input type="number" id="extra_other_analysis" class="input-number"></td>
-                            </tr>
-                            <tr>
-                                <td>İlişki Analizi</td>
-                                <td><input type="number" id="standard_relationship" class="input-number"></td>
-                                <td><input type="number" id="extra_relationship" class="input-number"></td>
+                                <td>Analiz Sayısı</td>
+                                <td><input type="number" id="free_analysis_count" class="input-number"></td>
+                                <td><input type="number" id="standard_analysis_count" class="input-number"></td>
+                                <td><input type="number" id="extra_analysis_count" class="input-number"></td>
                             </tr>
                             <tr>
                                 <td>Coaching Token (K)</td>
+                                <td><input type="number" id="free_coaching" class="input-number"></td>
                                 <td><input type="number" id="standard_coaching" class="input-number"></td>
                                 <td><input type="number" id="extra_coaching" class="input-number"></td>
                             </tr>
                             <tr>
                                 <td>Fiyat ($)</td>
+                                <td><input type="number" step="0.01" id="free_price" class="input-number" value="0" disabled></td>
                                 <td><input type="number" step="0.01" id="standard_price" class="input-number"></td>
                                 <td><input type="number" step="0.01" id="extra_price" class="input-number"></td>
                             </tr>
@@ -104,11 +93,39 @@
                 <!-- PAYG Pricing -->
                 <section class="section">
                     <h3>Kullandığın Kadar Öde</h3>
-                    <div class="info-box">
-                        ℹ️ Coaching Hizmeti: Aylık 15.000 token bedava
-                    </div>
                     <div id="paygPricing" class="payg-grid">
                         <!-- Will be populated by JS -->
+                    </div>
+                    <h4 style="margin-top: 20px;">Token Paketleri</h4>
+                    <div class="token-packages" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 10px;">
+                        <div class="payg-item">
+                            <label>250K Token</label>
+                            <div class="payg-price">
+                                <span>$</span>
+                                <input type="number" step="0.01" id="token_250k" class="input-number token-package-input" data-package="250k">
+                            </div>
+                        </div>
+                        <div class="payg-item">
+                            <label>500K Token</label>
+                            <div class="payg-price">
+                                <span>$</span>
+                                <input type="number" step="0.01" id="token_500k" class="input-number token-package-input" data-package="500k">
+                            </div>
+                        </div>
+                        <div class="payg-item">
+                            <label>1M Token</label>
+                            <div class="payg-price">
+                                <span>$</span>
+                                <input type="number" step="0.01" id="token_1m" class="input-number token-package-input" data-package="1m">
+                            </div>
+                        </div>
+                        <div class="payg-item">
+                            <label>5M Token</label>
+                            <div class="payg-price">
+                                <span>$</span>
+                                <input type="number" step="0.01" id="token_5m" class="input-number token-package-input" data-package="5m">
+                            </div>
+                        </div>
                     </div>
                     <button class="btn btn-save" onclick="savePayg()">PAYG Fiyatlarını Kaydet</button>
                 </section>

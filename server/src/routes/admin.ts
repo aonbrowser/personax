@@ -34,9 +34,7 @@ router.put('/pricing/plans/:planId', requireAdmin, async (req: Request, res: Res
   const { planId } = req.params;
   const {
     name,
-    self_reanalysis_limit,
-    other_analysis_limit,
-    relationship_analysis_limit,
+    total_analysis_credits,
     coaching_tokens_limit,
     price_usd
   } = req.body;
@@ -46,16 +44,17 @@ router.put('/pricing/plans/:planId', requireAdmin, async (req: Request, res: Res
       UPDATE subscription_plans 
       SET 
         name = COALESCE($2, name),
-        self_reanalysis_limit = COALESCE($3, self_reanalysis_limit),
-        other_analysis_limit = COALESCE($4, other_analysis_limit),
-        relationship_analysis_limit = COALESCE($5, relationship_analysis_limit),
-        coaching_tokens_limit = COALESCE($6, coaching_tokens_limit),
-        price_usd = COALESCE($7, price_usd),
+        total_analysis_credits = COALESCE($3, total_analysis_credits),
+        coaching_tokens_limit = COALESCE($4, coaching_tokens_limit),
+        price_usd = COALESCE($5, price_usd),
+        self_analysis_limit = 1,
+        self_reanalysis_limit = COALESCE($3, total_analysis_credits),
+        other_analysis_limit = COALESCE($3, total_analysis_credits),
+        relationship_analysis_limit = COALESCE($3, total_analysis_credits),
         updated_at = CURRENT_TIMESTAMP
       WHERE id = $1
       RETURNING *
-    `, [planId, name, self_reanalysis_limit, other_analysis_limit, 
-        relationship_analysis_limit, coaching_tokens_limit, price_usd]);
+    `, [planId, name, total_analysis_credits, coaching_tokens_limit, price_usd]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Plan not found' });
@@ -262,6 +261,47 @@ router.put('/pricing/token-costs/:modelId', requireAdmin, async (req: Request, r
   } catch (error) {
     console.error('Error updating token costs:', error);
     res.status(500).json({ error: 'Failed to update token costs' });
+  }
+});
+
+// Get token packages
+router.get('/token-packages', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const result = await pool.query(`
+      SELECT * FROM token_packages 
+      WHERE is_active = true 
+      ORDER BY token_amount ASC
+    `);
+    res.json({ packages: result.rows });
+  } catch (error) {
+    console.error('Error fetching token packages:', error);
+    res.status(500).json({ error: 'Failed to fetch token packages' });
+  }
+});
+
+// Update token package
+router.put('/token-packages/:packageId', requireAdmin, async (req: Request, res: Response) => {
+  const { packageId } = req.params;
+  const { price_usd } = req.body;
+
+  try {
+    const result = await pool.query(`
+      UPDATE token_packages 
+      SET 
+        price_usd = COALESCE($2, price_usd),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+      RETURNING *
+    `, [packageId, price_usd]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Package not found' });
+    }
+
+    res.json({ package: result.rows[0] });
+  } catch (error) {
+    console.error('Error updating token package:', error);
+    res.status(500).json({ error: 'Failed to update token package' });
   }
 });
 

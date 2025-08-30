@@ -32,12 +32,19 @@ router.get('/check-limits', async (req: Request, res: Response) => {
     // Get all active subscriptions with plan details
     const subsResult = await pool.query(`
       SELECT 
-        sub.*,
+        sub.subscription_id as id,
+        sub.plan_id,
+        sub.start_date,
+        sub.end_date,
+        sub.status,
+        sub.credits_remaining,
+        sub.is_primary,
         sp.self_analysis_limit,
         sp.self_reanalysis_limit,
         sp.other_analysis_limit,
         sp.relationship_analysis_limit,
-        sp.coaching_tokens_limit
+        sp.coaching_tokens_limit,
+        sp.total_analysis_credits
       FROM get_user_active_subscriptions($1) sub
       LEFT JOIN subscription_plans sp ON sub.plan_id = sp.id
     `, [userId]);
@@ -55,7 +62,27 @@ router.get('/check-limits', async (req: Request, res: Response) => {
       // Map service type to credit key
       switch (serviceType) {
         case 'self_analysis':
-          // Check if user has done self analysis before
+          // CRITICAL: Free plan self_analysis can ONLY be used ONCE per user lifetime
+          if (sub.plan_id === 'free') {
+            // Check if user has EVER done ANY self analysis (free plan is only for first-time users)
+            const anyAnalysisCount = await pool.query(`
+              SELECT COUNT(*) as count FROM analysis_results
+              WHERE user_id = $1 AND analysis_type = 'self'
+            `, [userId]);
+            
+            // If user has EVER done self_analysis, they cannot use free plan
+            if (anyAnalysisCount.rows[0].count > 0) {
+              console.log('❌ User has already done self_analysis before - FREE PLAN BLOCKED');
+              creditKey = 'none'; // Block access to free plan
+              break;
+            } else {
+              creditKey = 'self_analysis'; // Allow first and only use
+              console.log('✅ User has never done self_analysis - FREE PLAN ALLOWED');
+              break;
+            }
+          }
+          
+          // For non-free plans, check if user has done self analysis before
           const analysisCount = await pool.query(`
             SELECT COUNT(*) as count FROM analysis_results
             WHERE user_id = $1 AND analysis_type = 'self'
@@ -97,10 +124,20 @@ router.get('/check-limits', async (req: Request, res: Response) => {
       coaching_tokens_used: 0,
     };
     
+    // Add credits_used to each subscription for CreditsScreen
+    const subscriptionsWithUsage = subscriptions.map(sub => ({
+      ...sub,
+      credits_used: (monthlyUsage.self_analysis_count || 0) + 
+                    (monthlyUsage.self_reanalysis_count || 0) + 
+                    (monthlyUsage.other_analysis_count || 0) + 
+                    (monthlyUsage.relationship_analysis_count || 0),
+      coaching_tokens_used: monthlyUsage.coaching_tokens_used || 0
+    }));
+    
     res.json({
       hasCredit,
       availableSubscription,
-      subscriptions,
+      subscriptions: subscriptionsWithUsage,
       monthlyUsage,
       serviceType
     });
@@ -693,6 +730,24 @@ router.post('/use-credits', async (req: Request, res: Response) => {
     // Map service type to credit key
     switch (serviceType) {
       case 'self_analysis':
+        // First check if this is a free plan usage attempt
+        const subResult = await pool.query(`
+          SELECT plan_id FROM user_subscriptions WHERE id = $1
+        `, [subId || subscriptionId]);
+        
+        if (subResult.rows.length > 0 && subResult.rows[0].plan_id === 'free') {
+          // CRITICAL: Check if user has EVER done ANY self_analysis before
+          const anyAnalysisCount = await pool.query(`
+            SELECT COUNT(*) as count FROM analysis_results
+            WHERE user_id = $1 AND analysis_type = 'self'
+          `, [userId]);
+          
+          if (anyAnalysisCount.rows[0].count > 0) {
+            console.log('❌ User attempting to use free plan but already has self_analysis - BLOCKED in use-credits');
+            return res.status(400).json({ error: 'Free plan can only be used by first-time users' });
+          }
+        }
+        
         creditKey = 'self_reanalysis';
         break;
       case 'other_analysis':

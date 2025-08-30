@@ -36,6 +36,7 @@ import NewPersonAnalysisScreen from './screens/NewPersonAnalysisScreen';
 import AccountInfoScreen from './screens/AccountInfoScreen';
 import SubscriptionScreen from './screens/SubscriptionScreen';
 import CreditsScreen from './screens/CreditsScreen';
+import AdminPricingScreen from './screens/AdminPricingScreen';
 
 // Services
 
@@ -1224,6 +1225,14 @@ export default function App() {
           params: {
             userEmail: email
           }
+        }}
+      />;
+    }
+    
+    if (currentScreen === 'admin-pricing') {
+      return <AdminPricingScreen 
+        navigation={{ 
+          goBack: () => setCurrentScreen('home')
         }}
       />;
     }

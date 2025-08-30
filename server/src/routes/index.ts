@@ -6,6 +6,33 @@ export const router = Router();
 
 router.get('/health', (_req, res)=> res.json({ ok: true }));
 
+// Get subscription plans from database
+router.get('/subscription-plans', async (_req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, name, price_usd as price, total_analysis_credits as credits, 
+              coaching_tokens_limit, is_active as status
+       FROM subscription_plans 
+       WHERE is_active = true
+       ORDER BY price_usd ASC`
+    );
+    
+    // Add features array based on plan data
+    const plansWithFeatures = rows.map(plan => ({
+      ...plan,
+      features: [
+        `${plan.credits} Analiz Kredisi`,
+        `${plan.coaching_tokens_limit} Koçluk Token`
+      ]
+    }));
+    
+    res.json({ plans: plansWithFeatures });
+  } catch (error) {
+    console.error('Error fetching subscription plans:', error);
+    res.status(500).json({ error: 'Failed to fetch subscription plans' });
+  }
+});
+
 // Check if user has credits for a service
 router.post('/user/check-credits', async (req, res) => {
   const userEmail = req.header('x-user-email');
@@ -62,6 +89,9 @@ router.post('/analyze/self', async (req, res) => {
   if (!userEmail || !userEmail.includes('@')) {
     return res.status(401).json({ error: 'Unauthorized - valid email required' });
   }
+  
+  // Import CreditManager
+  const { CreditManager } = await import('../services/credit-manager.js');
   
   // LOG: Print received data
   console.log('\n=== RECEIVED AT BACKEND ===');
@@ -166,12 +196,32 @@ router.post('/analyze/self', async (req, res) => {
     });
   }
   
-  // Log the exact data being passed to pipeline
-  // Check if this is an update to existing analysis
+  // Check and deduct credits (only for new analysis, not updates)
   const analysisId = req.body.analysisId;
   const updateExisting = req.body.updateExisting;
   
-  if (updateExisting && analysisId) {
+  if (!updateExisting) {
+    // Check if user has credits
+    const creditCheck = await CreditManager.checkCredits(userId);
+    if (!creditCheck.hasCredits) {
+      return res.status(402).json({ 
+        error: 'insufficient_credits',
+        message: 'No available credits in your subscription',
+        availableCredits: 0
+      });
+    }
+    
+    // Deduct credit
+    const deductResult = await CreditManager.deductCredit(userId, 'self_analysis');
+    if (!deductResult.success) {
+      return res.status(402).json({ 
+        error: 'credit_deduction_failed',
+        message: deductResult.error || 'Failed to deduct credit'
+      });
+    }
+    
+    console.log(`[CREDIT] Deducted 1 credit for user ${userId}, remaining: ${creditCheck.availableCredits - 1}`);
+  } else if (analysisId) {
     console.log('[ROUTE] Updating existing analysis:', analysisId);
     
     // Verify the analysis belongs to this user

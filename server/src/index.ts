@@ -24,11 +24,14 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '2mb' }));
 
-// Serve admin panel static files
+// Admin panel routes and static files
 app.use('/admin', express.static(path.join(__dirname, 'admin')));
 
-// Admin panel route
 app.get('/stargate', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin', 'index.html'));
+});
+
+app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'admin', 'index.html'));
 });
 

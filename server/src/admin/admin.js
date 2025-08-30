@@ -1,5 +1,5 @@
 // Admin Panel JavaScript
-const API_URL = 'http://localhost:8080/v1/admin';
+const API_URL = '/v1/admin';
 
 // Authentication
 let authToken = null;
@@ -122,21 +122,28 @@ async function loadInitialData() {
 
 // API Functions
 async function apiRequest(endpoint, options = {}) {
-    const response = await fetch(`${API_URL}${endpoint}`, {
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            'x-admin-key': 'admin-secret-key-2025',
-            'x-admin-token': authToken,
-            ...options.headers
+    try {
+        const response = await fetch(`${API_URL}${endpoint}`, {
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                'x-admin-key': 'admin-secret-key-2025',
+                'x-admin-token': authToken,
+                ...options.headers
+            }
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('API Error Response:', errorText);
+            throw new Error(`API Error: ${response.status} - ${errorText}`);
         }
-    });
-    
-    if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
+        
+        return response.json();
+    } catch (error) {
+        console.error('API Request failed:', endpoint, error);
+        throw error;
     }
-    
-    return response.json();
 }
 
 // Pricing Functions
@@ -147,36 +154,40 @@ async function loadPricingData() {
         const plans = plansData.plans || [];
         
         plans.forEach(plan => {
-            if (plan.id === 'standard') {
-                document.getElementById('standard_self_reanalysis').value = plan.self_reanalysis_limit;
-                document.getElementById('standard_other_analysis').value = plan.other_analysis_limit;
-                document.getElementById('standard_relationship').value = plan.relationship_analysis_limit;
+            if (plan.id === 'free') {
+                document.getElementById('free_analysis_count').value = plan.total_analysis_credits || 0;
+                document.getElementById('free_coaching').value = plan.coaching_tokens_limit / 1000;
+                document.getElementById('free_price').value = 0;
+            } else if (plan.id === 'standard') {
+                document.getElementById('standard_analysis_count').value = plan.total_analysis_credits || 0;
                 document.getElementById('standard_coaching').value = plan.coaching_tokens_limit / 1000;
                 document.getElementById('standard_price').value = plan.price_usd;
             } else if (plan.id === 'extra') {
-                document.getElementById('extra_self_reanalysis').value = plan.self_reanalysis_limit;
-                document.getElementById('extra_other_analysis').value = plan.other_analysis_limit;
-                document.getElementById('extra_relationship').value = plan.relationship_analysis_limit;
+                document.getElementById('extra_analysis_count').value = plan.total_analysis_credits || 0;
                 document.getElementById('extra_coaching').value = plan.coaching_tokens_limit / 1000;
                 document.getElementById('extra_price').value = plan.price_usd;
             }
         });
         
-        // Load PAYG pricing
+        // Load PAYG pricing - but don't display anything (keeping for token package prices)
         const paygData = await apiRequest('/pricing/payg');
         const paygPricing = paygData.pricing || [];
         
         const paygContainer = document.getElementById('paygPricing');
-        paygContainer.innerHTML = paygPricing.map(item => `
-            <div class="payg-item">
-                <label>${getServiceTypeName(item.service_type)}</label>
-                <div class="payg-price">
-                    <span>$</span>
-                    <input type="number" step="0.01" value="${item.price_usd}" 
-                           data-id="${item.id}" class="input-number payg-input">
-                </div>
-            </div>
-        `).join('');
+        // Clear the container - we'll only show token packages below
+        paygContainer.innerHTML = '';
+        
+        // Load token packages
+        const tokenData = await apiRequest('/token-packages');
+        const tokenPackages = tokenData.packages || [];
+        
+        tokenPackages.forEach(pkg => {
+            const input = document.getElementById(pkg.id);
+            if (input) {
+                input.value = pkg.price_usd;
+                input.setAttribute('data-package-id', pkg.id);
+            }
+        });
     } catch (error) {
         console.error('Error loading pricing data:', error);
         alert('Fiyat verileri yüklenemedi!');
@@ -185,54 +196,78 @@ async function loadPricingData() {
 
 async function savePlans() {
     try {
+        // Save free plan
+        const freeAnalysisCount = parseInt(document.getElementById('free_analysis_count').value) || 0;
+        const freeData = {
+            total_analysis_credits: freeAnalysisCount,
+            coaching_tokens_limit: parseInt(document.getElementById('free_coaching').value || 0) * 1000,
+            price_usd: 0
+        };
+        console.log('Saving free plan:', freeData);
+        await apiRequest('/pricing/plans/free', {
+            method: 'PUT',
+            body: JSON.stringify(freeData)
+        });
+        
         // Save standard plan
+        const standardAnalysisCount = parseInt(document.getElementById('standard_analysis_count').value) || 0;
+        const standardData = {
+            total_analysis_credits: standardAnalysisCount,
+            coaching_tokens_limit: parseInt(document.getElementById('standard_coaching').value || 0) * 1000,
+            price_usd: parseFloat(document.getElementById('standard_price').value)
+        };
+        console.log('Saving standard plan:', standardData);
         await apiRequest('/pricing/plans/standard', {
             method: 'PUT',
-            body: JSON.stringify({
-                self_reanalysis_limit: parseInt(document.getElementById('standard_self_reanalysis').value),
-                other_analysis_limit: parseInt(document.getElementById('standard_other_analysis').value),
-                relationship_analysis_limit: parseInt(document.getElementById('standard_relationship').value),
-                coaching_tokens_limit: parseInt(document.getElementById('standard_coaching').value) * 1000,
-                price_usd: parseFloat(document.getElementById('standard_price').value)
-            })
+            body: JSON.stringify(standardData)
         });
         
         // Save extra plan
+        const extraAnalysisCount = parseInt(document.getElementById('extra_analysis_count').value) || 0;
+        const extraData = {
+            total_analysis_credits: extraAnalysisCount,
+            coaching_tokens_limit: parseInt(document.getElementById('extra_coaching').value || 0) * 1000,
+            price_usd: parseFloat(document.getElementById('extra_price').value)
+        };
+        console.log('Saving extra plan:', extraData);
         await apiRequest('/pricing/plans/extra', {
             method: 'PUT',
-            body: JSON.stringify({
-                self_reanalysis_limit: parseInt(document.getElementById('extra_self_reanalysis').value),
-                other_analysis_limit: parseInt(document.getElementById('extra_other_analysis').value),
-                relationship_analysis_limit: parseInt(document.getElementById('extra_relationship').value),
-                coaching_tokens_limit: parseInt(document.getElementById('extra_coaching').value) * 1000,
-                price_usd: parseFloat(document.getElementById('extra_price').value)
-            })
+            body: JSON.stringify(extraData)
         });
         
         alert('Abonelik paketleri başarıyla güncellendi!');
+        // Reload data to show updated values
+        await loadPricingData();
     } catch (error) {
         console.error('Error saving plans:', error);
-        alert('Paketler kaydedilirken hata oluştu!');
+        alert('Paketler kaydedilirken hata oluştu: ' + error.message);
     }
 }
 
 async function savePayg() {
     try {
-        const inputs = document.querySelectorAll('.payg-input');
-        
-        for (const input of inputs) {
-            await apiRequest(`/pricing/payg/${input.dataset.id}`, {
-                method: 'PUT',
-                body: JSON.stringify({
-                    price_usd: parseFloat(input.value)
-                })
-            });
+        // Save token packages
+        const tokenPackages = document.querySelectorAll('.token-package-input');
+        for (const input of tokenPackages) {
+            const packageId = input.getAttribute('data-package-id') || input.id;
+            const price = parseFloat(input.value);
+            
+            if (!isNaN(price) && price >= 0) {
+                await apiRequest(`/token-packages/${packageId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        price_usd: price
+                    })
+                });
+            }
         }
         
-        alert('PAYG fiyatları başarıyla güncellendi!');
+        alert('Token paketleri başarıyla güncellendi!');
+        // Reload data to show updated values
+        await loadPricingData();
     } catch (error) {
-        console.error('Error saving PAYG pricing:', error);
-        alert('PAYG fiyatları kaydedilirken hata oluştu!');
+        console.error('Error saving token packages:', error);
+        alert('Token paketleri kaydedilirken hata oluştu: ' + error.message);
     }
 }
 

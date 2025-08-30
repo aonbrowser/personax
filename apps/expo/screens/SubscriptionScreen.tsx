@@ -39,67 +39,23 @@ interface Subscription {
 interface PlanOption {
   id: string;
   name: string;
-  price: string;
-  credits: {
-    self_analysis?: number;
-    self_reanalysis?: number;
-    other_analysis?: number;
-    relationship_analysis?: number;
-    coaching_tokens?: number;
-  };
+  price: number;
+  credits: number;
   features: string[];
+  stripe_price_id?: string;
+  status?: string;
 }
 
-// Real data from database - subscription_plans table
-const AVAILABLE_PLANS: PlanOption[] = [
-  {
-    id: 'standard',
-    name: 'Standart Paket',
-    price: '$20/ay', // Real price from DB: $20.00
-    credits: {
-      self_analysis: 1,
-      self_reanalysis: 2,  // Real from DB
-      other_analysis: 8,   // Real from DB
-      relationship_analysis: 8,  // Real from DB
-      coaching_tokens: 200000000,  // Real from DB: 200M tokens
-    },
-    features: [
-      '1 Kendi Analizi',
-      '2 Analiz Güncelleme',
-      '8 Kişi Analizi',
-      '8 İlişki Analizi',
-      '200M Koçluk Token',
-    ],
-  },
-  {
-    id: 'extra',
-    name: 'Extra Paket',
-    price: '$50/ay', // Real price from DB: $50.00
-    credits: {
-      self_analysis: 1,
-      self_reanalysis: 5,  // Real from DB
-      other_analysis: 25,  // Real from DB
-      relationship_analysis: 25,  // Real from DB
-      coaching_tokens: 500000000,  // Real from DB: 500M tokens
-    },
-    features: [
-      '1 Kendi Analizi',
-      '5 Analiz Güncelleme',
-      '25 Kişi Analizi',
-      '25 İlişki Analizi',
-      '500M Koçluk Token',
-    ],
-  },
-];
 
 export default function SubscriptionScreen({ navigation, route }: SubscriptionScreenProps) {
   const { userEmail } = route.params;
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [availablePlans, setAvailablePlans] = useState<PlanOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
-    loadSubscriptions();
+    Promise.all([loadSubscriptions(), loadAvailablePlans()]);
   }, []);
 
   const loadSubscriptions = async () => {
@@ -124,19 +80,43 @@ export default function SubscriptionScreen({ navigation, route }: SubscriptionSc
     }
   };
 
+  const loadAvailablePlans = async () => {
+    try {
+      const response = await fetch(`${API_URL}/v1/subscription-plans`);
+      if (response.ok) {
+        const data = await response.json();
+        setAvailablePlans(data.plans || []);
+      }
+    } catch (error) {
+      console.error('Error loading plans:', error);
+    }
+  };
+
   const handleCancelSubscription = (subscriptionId: string) => {
-    Alert.alert(
-      'Aboneliği İptal Et',
-      'Bu aboneliği iptal etmek istediğinizden emin misiniz? İptal edildiğinde, mevcut döneminiz sonuna kadar kullanabilirsiniz.',
-      [
-        { text: 'Vazgeç', style: 'cancel' },
-        {
-          text: 'İptal Et',
-          style: 'destructive',
-          onPress: () => cancelSubscription(subscriptionId),
-        },
-      ]
-    );
+    console.log('Cancel subscription called with ID:', subscriptionId);
+    
+    // Web'de Alert çalışmıyorsa confirm kullan
+    if (typeof window !== 'undefined') {
+      const confirmed = window.confirm(
+        'Bu aboneliği iptal etmek istediğinizden emin misiniz? İptal edildiğinde, mevcut döneminiz sonuna kadar kullanabilirsiniz.'
+      );
+      if (confirmed) {
+        cancelSubscription(subscriptionId);
+      }
+    } else {
+      Alert.alert(
+        'Aboneliği İptal Et',
+        'Bu aboneliği iptal etmek istediğinizden emin misiniz? İptal edildiğinde, mevcut döneminiz sonuna kadar kullanabilirsiniz.',
+        [
+          { text: 'Vazgeç', style: 'cancel' },
+          {
+            text: 'İptal Et',
+            style: 'destructive',
+            onPress: () => cancelSubscription(subscriptionId),
+          },
+        ]
+      );
+    }
   };
 
   const cancelSubscription = async (subscriptionId: string) => {
@@ -151,18 +131,30 @@ export default function SubscriptionScreen({ navigation, route }: SubscriptionSc
       });
 
       if (response.ok) {
-        Alert.alert(
-          'Başarılı', 
-          'Aboneliğiniz iptal edildi. Mevcut dönem sonuna kadar tüm özelliklerden yararlanmaya devam edebilirsiniz.'
-        );
+        if (typeof window !== 'undefined') {
+          window.alert('Aboneliğiniz iptal edildi. Mevcut dönem sonuna kadar tüm özelliklerden yararlanmaya devam edebilirsiniz.');
+        } else {
+          Alert.alert(
+            'Başarılı', 
+            'Aboneliğiniz iptal edildi. Mevcut dönem sonuna kadar tüm özelliklerden yararlanmaya devam edebilirsiniz.'
+          );
+        }
         await loadSubscriptions();
       } else {
         const errorData = await response.json();
-        Alert.alert('Hata', errorData.error || 'Abonelik iptal edilemedi.');
+        if (typeof window !== 'undefined') {
+          window.alert(errorData.error || 'Abonelik iptal edilemedi.');
+        } else {
+          Alert.alert('Hata', errorData.error || 'Abonelik iptal edilemedi.');
+        }
       }
     } catch (error) {
       console.error('Error canceling subscription:', error);
-      Alert.alert('Hata', 'Bir hata oluştu.');
+      if (typeof window !== 'undefined') {
+        window.alert('Bir hata oluştu.');
+      } else {
+        Alert.alert('Hata', 'Bir hata oluştu.');
+      }
     } finally {
       setProcessing(false);
     }
@@ -197,7 +189,7 @@ export default function SubscriptionScreen({ navigation, route }: SubscriptionSc
   };
 
   const getPlanName = (planId: string) => {
-    const plan = AVAILABLE_PLANS.find(p => p.id === planId);
+    const plan = availablePlans.find(p => p.id === planId);
     return plan?.name || planId;
   };
 
@@ -303,7 +295,8 @@ export default function SubscriptionScreen({ navigation, route }: SubscriptionSc
         {/* Available Plans */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Kullanılabilir Paketler</Text>
-          {AVAILABLE_PLANS.map(plan => {
+          {availablePlans.length > 0 ? (
+            availablePlans.map(plan => {
             const hasActivePlan = subscriptions.some(
               sub => sub.plan_id === plan.id && sub.status === 'active'
             );
@@ -312,38 +305,57 @@ export default function SubscriptionScreen({ navigation, route }: SubscriptionSc
               <View key={plan.id} style={styles.planCard}>
                 <View style={styles.planHeader}>
                   <Text style={styles.planName}>{plan.name}</Text>
-                  <Text style={styles.planPrice}>{plan.price}</Text>
+                  <Text style={styles.planPrice}>
+                    {plan.price === 0 ? 'Ücretsiz' : `$${plan.price}/ay`}
+                  </Text>
                 </View>
 
                 <View style={styles.planFeatures}>
-                  {plan.features.map((feature, index) => (
-                    <View key={index} style={styles.featureRow}>
-                      <Text style={styles.featureCheck}>✓</Text>
-                      <Text style={styles.featureText}>{feature}</Text>
-                    </View>
-                  ))}
+                  {(() => {
+                    const features = [];
+                    // Only use the features from API, don't duplicate
+                    if (plan.features && Array.isArray(plan.features)) {
+                      features.push(...plan.features);
+                    } else if (plan.features && typeof plan.features === 'string') {
+                      try {
+                        const parsed = JSON.parse(plan.features);
+                        features.push(...parsed);
+                      } catch {}
+                    }
+                    return features.map((feature, index) => (
+                      <View key={index} style={styles.featureRow}>
+                        <Text style={styles.featureCheck}>✓</Text>
+                        <Text style={styles.featureText}>{feature}</Text>
+                      </View>
+                    ));
+                  })()}
                 </View>
 
                 <TouchableOpacity
                   style={[
                     styles.subscribeButton,
-                    hasActivePlan && styles.subscribeButtonDisabled,
+                    (hasActivePlan || plan.id === 'free') && styles.subscribeButtonDisabled,
                   ]}
                   onPress={() => handleSubscribeToPlan(plan.id)}
-                  disabled={hasActivePlan || processing}
+                  disabled={hasActivePlan || processing || plan.id === 'free'}
                 >
                   <Text
                     style={[
                       styles.subscribeButtonText,
-                      hasActivePlan && styles.subscribeButtonTextDisabled,
+                      (hasActivePlan || plan.id === 'free') && styles.subscribeButtonTextDisabled,
                     ]}
                   >
-                    {hasActivePlan ? 'Sahipsiniz' : 'Satın Al'}
+                    {hasActivePlan ? 'Sahipsiniz' : plan.id === 'free' ? 'Ücretsiz' : 'Satın Al'}
                   </Text>
                 </TouchableOpacity>
               </View>
             );
-          })}
+          })
+          ) : (
+            <View style={styles.noSubscriptionBox}>
+              <Text style={styles.noSubscriptionText}>Yükleniyor...</Text>
+            </View>
+          )}
         </View>
 
         {/* Info Box */}
